@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esquemas de batería</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1c1c1e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Batería">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root {
+    --ink: #1c1c1e;
+    --muted: #8a8a90;
+    --line: #d4d4d9;
+    --paper: #ffffff;
+    --bg: #f2f2f4;
+    --pa: #c2410c;   /* redoblante */
+    --tun: #1d4ed8;  /* bombo */
+    --ts: #15803d;   /* hi-hat */
+    --now: #fde68a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+
+  .toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line); }
+  .toolbar button { font: inherit; font-size: 14px; padding: 7px 12px; border: 1px solid var(--line);
+    background: #fff; border-radius: 8px; cursor: pointer; }
+  .toolbar button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .toolbar .opt { font-size: 14px; color: #55555a; display: flex; align-items: center; gap: 6px; }
+  .toolbar .spacer { flex: 1; }
+
+  .metro { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 8px; border: 1px solid var(--line); border-radius: 10px; }
+  .metro input[type=number] { width: 60px; font: inherit; font-size: 14px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; text-align: center; }
+  [hidden] { display: none !important; }
+  .more { position: relative; }
+  .more summary { list-style: none; cursor: pointer; font-size: 14px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .more summary::-webkit-details-marker { display: none; }
+  .more > div { position: absolute; right: 0; top: 40px; z-index: 6; display: flex; flex-direction: column; gap: 6px;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15); min-width: 170px; }  body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); -webkit-tap-highlight-color: transparent; }
+  .cell, button { touch-action: manipulation; }
+  @media (max-width: 700px) {
+    /* en el celular la barra ocupa mucho: que no quede fija y se desplace con la página */
+    .toolbar { position: static; padding: 10px 12px; }
+    .sheet { padding: 0 10px 60px; }
+    .block { padding: 10px 8px 12px; }
+    .block-head { flex-wrap: wrap; }
+    .block-name { flex-basis: 100%; }
+  }
+  .brush { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 14px; color: #55555a; margin: 0 0 14px; }
+  .brush label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .brush small { color: var(--muted); }
+  .cell.lvl3 { font-weight: 900; background: color-mix(in srgb, currentColor 14%, transparent); }
+  .cell.lvl1 { font-weight: 500; font-size: clamp(10px, 2vw, 16px); opacity: .8; }
+  .mixer input[type=range] { width: 80px; }
+  .dots { display: flex; gap: 5px; margin-left: 4px; }
+  .dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--line); }
+  .dots i.on { background: var(--tun); }
+  .dots i.on:first-child { background: var(--pa); }
+  .sheet { max-width: 900px; margin: 20px auto; padding: 0 16px 60px; }
+  .sheet-title { width: 100%; font: 700 26px system-ui; border: 0; background: transparent; padding: 6px 0; color: var(--ink); }
+  .legend { display: flex; gap: 18px; font-size: 14px; margin: 0 0 14px; color: #55555a; }
+  .legend b.pa { color: var(--pa); } .legend b.tun { color: var(--tun); }
+
+  .block { background: var(--paper); border: 1.5px solid var(--ink); border-radius: 10px; margin-bottom: 18px; padding: 12px 14px 14px; break-inside: avoid; }
+  .block-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .block-name { flex: 1; min-width: 0; font: 600 16px system-ui; border: 0; background: transparent; color: var(--ink); }
+  .block-head button, .ctl select { font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 6px; cursor: pointer; }
+
+  .outer { display: grid; grid-template-columns: clamp(48px, 11vw, 92px) repeat(4, 1fr); }
+  .outer > * { min-width: 0; }
+  .ctl { padding: 0 2px 6px 4px; }
+  .ctl select { width: 100%; }
+
+  .labels, .beat { display: grid; grid-template-rows: var(--rows); }
+  .now { background: var(--now) !important; }
+  .h.now { color: var(--ink); }
+  dialog { width: min(560px, 92vw); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  .lib-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .lib-head h2 { margin: 0; font-size: 18px; }
+  .lib-head .spacer { flex: 1; }
+  dialog button { font: inherit; font-size: 13px; padding: 5px 10px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; }
+  #libList { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; }
+  #libList li { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+  #libList li > div { flex: 1; min-width: 0; }
+  #libList b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #libList small { color: var(--muted); }
+  #libList li.empty { color: var(--muted); border: 0; }
+  .practice { background: var(--ink) !important; color: #fff; border-color: var(--ink) !important; }
+  .legend button { font-size: 12px; border: 1px dashed var(--muted); background: #fff; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+  .legend b.ts { color: var(--ts); }
+  .row-label.ts { color: var(--ts); } .cell.ts { color: var(--ts); }
+  .beat { grid-auto-flow: row; border-left: 2px solid var(--ink); }
+  .row-label { display: flex; align-items: center; font-size: clamp(9px, 1.6vw, 12px); font-weight: 700; line-height: 1.15; }
+  .row-label.pa { color: var(--pa); } .row-label.tun { color: var(--tun); }
+
+  .beat-inner { display: contents; }
+  .h { display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px;
+    border-bottom: 2px solid var(--ink); font-size: clamp(10px, 2vw, 14px); color: var(--muted); }
+  .h.num { color: var(--ink); font: 700 clamp(18px, 3.6vw, 28px) system-ui; }
+  .cell { border-bottom: 1px solid var(--line); border-left: 1px dashed var(--line);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none;
+    font: 700 clamp(11px, 2.4vw, 20px) system-ui; }
+  .cell.first, .h.first { border-left: 0; }
+  .cell.pa { color: var(--pa); } .cell.tun { color: var(--tun); }
+  .cell:hover { background: #f1f5f9; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 18px; }
+  #notice { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 14px; }
+  #notice ul { margin: 6px 0 0; padding-left: 20px; }
+  #notice button { float: right; border: 0; background: none; font-size: 18px; cursor: pointer; }
+  #notice.err { background: #fef2f2; border-color: #ef4444; }
+
+  @media print {
+    @page { size: A4 landscape; margin: 12mm; }
+    body { background: #fff; }
+    .toolbar, .hint, .block-head button, .ctl, #notice, .legend button, .brush { display: none !important; }
+    .now { background: transparent !important; }
+    .sheet { max-width: none; margin: 0; padding: 0; }
+    .block { border-radius: 0; }
+    .cell:hover { background: transparent; }
+    body.page-per-block .block { break-after: page; }
+    body.page-per-block .block:last-child { break-after: auto; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="primary" id="print">Imprimir</button>
+  <button id="newEx">＋ Nuevo ejercicio</button>
+  <button id="save">💾 Guardar</button>
+  <button id="openLib">📂 Mis ejercicios</button>
+  <button id="photo">📷 Leer foto</button>
+  <button id="add">+ Bloque</button>
+  <label class="opt"><input type="checkbox" id="perPage"> Un bloque por hoja</label>
+  <span class="metro">
+    <button id="mPlay" class="primary">▶ Metrónomo</button>
+    <button id="mAll" title="Toca todos los bloques en orden y vuelve a empezar">▶ Todos los bloques</button>
+    <button id="mDown" title="Bajar 5 BPM">−</button>
+    <input id="bpm" type="number" min="30" max="240" value="80"> <span class="opt">BPM</span>
+    <button id="mUp" title="Subir 5 BPM">+</button>
+    <label class="opt"><input type="checkbox" id="mDrums" checked> 🥁 sonar el patrón</label>
+    <label class="opt"><input type="checkbox" id="mClick" checked> clic</label>
+    <label class="opt"><input type="checkbox" id="mSub"> marcar el "y"</label>
+    <span class="dots" id="dots"><i></i><i></i><i></i><i></i></span>
+  </span>
+  <span class="metro mixer">
+    <span class="opt">🎚 Volumen</span>
+    <label class="opt">Redoblante <input type="range" min="0" max="100" data-vol="pa"></label>
+    <label class="opt">Bombo <input type="range" min="0" max="100" data-vol="tun"></label>
+    <label class="opt" id="vHat" hidden>Hi-hat <input type="range" min="0" max="100" data-vol="ts"></label>
+    <label class="opt">Clic <input type="range" min="0" max="100" data-vol="click"></label>
+  </span>
+  <span class="spacer"></span>
+  <details class="more">
+    <summary>⋯ Más</summary>
+    <div>
+      <button id="export">Exportar JSON</button>
+      <button id="import">Importar JSON</button>
+      <button id="apikey">Clave API</button>
+      <button id="reset">Cargar ejemplo</button>
+    </div>
+  </details>
+</div>
+
+<dialog id="lib">
+  <div class="lib-head"><h2>Mis ejercicios</h2><span class="spacer"></span><button id="libNew">+ Nuevo</button><button id="libClose">Cerrar</button></div>
+  <ul id="libList"></ul>
+</dialog>
+
+<div class="sheet">
+  <input class="sheet-title" id="title" placeholder="Título del ejercicio">
+  <div class="legend" id="legend"></div>
+  <div class="brush" id="brush">
+    <span>Al tocar una casilla, marcar el golpe:</span>
+    <label><input type="radio" name="brush" value="1"> suave <small>(pa)</small></label>
+    <label><input type="radio" name="brush" value="2" checked> normal <small>Pa</small></label>
+    <label><input type="radio" name="brush" value="3"> fuerte <small>PA</small></label>
+  </div>
+  <div id="notice" hidden></div>
+  <div id="blocks"></div>
+  <p class="hint">Hacé clic en una casilla para prender o apagar el golpe. El número (el pulso) está sobre el golpe que cae justo en el pulso; las demás casillas son golpes entre un pulso y el siguiente. Cada pulso tiene su propio selector de cuántos golpes lleva. Si dos golpes caen en el mismo momento, prendé las dos filas. El ejercicio en pantalla se recuerda solo, pero para conservarlo con nombre usá <b>Guardar</b>: queda en <b>Mis ejercicios</b>, en este navegador. Para llevarlo a otra computadora o hacer una copia, usá <b>Exportar JSON</b>.</p>
+</div>
+
+<script>
+const KEY = "bateria-esquemas-v3";
+const BEATS = 4;
+const SUBS = { 1: [""], 2: ["", "y"], 3: ["", "y", "a"], 4: ["", "e", "y", "a"] };
+const LABEL = { 1: "1 golpe", 2: "2 golpes", 3: "3 golpes", 4: "4 golpes" };
+
+// Instrumentos. "ts" es opcional y se activa desde la leyenda; cambiá su sílaba o nombre acá si el profe usa otra.
+const LANES = [
+  { id: "pa",  syl: "Pa",  name: "redoblante" },
+  { id: "tun", syl: "Tun", name: "bombo" },
+  { id: "ts",  syl: "Tss", name: "hi-hat" },
+];
+const ALL = LANES.map(l => l.id);
+// Cada golpe vale 0 = no suena, 1 = suave, 2 = normal, 3 = fuerte.
+const emptyBeat = (div = 2) => Object.fromEntries([["div", div], ...ALL.map(k => [k, Array(div).fill(0)])]);
+// Completa lo que falte (datos viejos, fotos, archivos importados) para que todo pulso tenga todos los instrumentos.
+// Los datos anteriores guardaban true/false: true pasa a "normal".
+function fixState(st) {
+  if (!Array.isArray(st.lanes)) st.lanes = ["pa", "tun"];
+  st.blocks.forEach(b => b.beats.forEach(t => ALL.forEach(k => {
+    t[k] = Array.from({ length: t.div }, (_, s) => {
+      const x = (t[k] || [])[s];
+      return x === true ? 2 : (x >= 1 && x <= 3 ? Math.round(x) : 0);
+    });
+  })));
+  return st;
+}
+const emptyBlock = (name = "") => ({ name, beats: Array.from({ length: BEATS }, () => emptyBeat(2)) });
+// Posiciones: 1 = pulso 1, 1.5 = el "y" del 1, 2 = pulso 2, etc. (solo para dos golpes por pulso)
+const mk = (name, pa, tun) => {
+  const b = emptyBlock(name);
+  const put = (k, p) => { const i = Math.floor(p - 1), s = Math.round(((p - 1) % 1) * 2); b.beats[i][k][s] = true; };
+  pa.forEach(p => put("pa", p));
+  tun.forEach(p => put("tun", p));
+  return b;
+};
+
+// Ejercicio de la foto del pizarrón. El bloque 4 es el más dudoso de leer.
+const EXAMPLE = {
+  title: "Ejercicio del profe",
+  blocks: [
+    mk("Bloque 1", [2, 2.5, 4, 4.5], [1, 1.5, 3, 3.5]),
+    mk("Bloque 2", [1, 2.5, 3], [1.5, 2, 3.5, 4, 4.5]),
+    mk("Bloque 3", [1, 1.5, 3, 3.5], [2, 2.5, 4, 4.5]),
+    mk("Bloque 4", [1.5, 2, 3.5, 4], [1, 2, 3, 4.5]),
+  ],
+};
+
+let state;
+try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+if (!state || !Array.isArray(state.blocks)) state = structuredClone(EXAMPLE);
+fixState(state);
+
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const $ = id => document.getElementById(id);
+const lane = k => LANES.find(l => l.id === k);
+const activeLanes = () => LANES.filter(l => state.lanes.includes(l.id));
+const VEL = { 1: 0.35, 2: 0.75, 3: 1 };   // volumen real de cada fuerza
+let brush = 2;                            // fuerza con la que se marcan las casillas
+// En papel: fuerte = MAYÚSCULAS y fondo, normal = Pa, suave = (pa)
+const txt = (k, v) => !v ? "" : v === 3 ? lane(k).syl.toUpperCase() : v === 1 ? `(${lane(k).syl.toLowerCase()})` : lane(k).syl;
+
+function renderLegend() {
+  const ts = lane("ts");
+  $("legend").innerHTML = LANES.filter(l => l.id !== "ts").map(l =>
+    `<span><b class="${l.id}">${l.syl}</b> = ${l.name}</span>`).join("") +
+    (state.lanes.includes("ts")
+      ? `<span><b class="ts">${ts.syl}</b> = ${ts.name}</span><button id="lane-ts">quitar ${ts.name}</button>`
+      : `<button id="lane-ts">+ agregar ${ts.name}</button>`);
+  $("lane-ts").onclick = () => {
+    state.lanes = state.lanes.includes("ts") ? state.lanes.filter(x => x !== "ts") : [...state.lanes, "ts"];
+    save(); render();
+  };
+}
+
+// Cambia cuántos golpes lleva un pulso; conserva los golpes que caen en el mismo lugar.
+function regrid(beat, newDiv) {
+  for (const k of ALL) {
+    const next = Array(newDiv).fill(0);
+    beat[k].forEach((v, i) => {
+      const np = i * newDiv / beat.div;
+      if (v && Number.isInteger(np)) next[np] = v;
+    });
+    beat[k] = next;
+  }
+  beat.div = newDiv;
+}
+
+function render() {
+  $("title").value = state.title || "";
+  renderLegend();
+  $("vHat").hidden = !state.lanes.includes("ts");
+  const lanes = activeLanes();
+  const root = $("blocks");
+  root.innerHTML = "";
+  state.blocks.forEach((b, bi) => {
+    const el = document.createElement("section");
+    el.className = "block";
+    el.innerHTML = `
+      <div class="block-head">
+        <input class="block-name" placeholder="Nombre del bloque">
+        <button data-act="practice" class="practice">▶ Practicar</button>
+        <button data-act="dup">Duplicar</button>
+        <button data-act="del">Borrar</button>
+      </div>
+      <div class="outer" style="--rows: 44px repeat(${lanes.length}, 54px)">
+        <div class="ctl"></div>
+        ${b.beats.map((bt, i) => `<div class="ctl"><select data-i="${i}">${
+          [1, 2, 3, 4].map(d => `<option value="${d}" ${d === bt.div ? "selected" : ""}>${LABEL[d]}</option>`).join("")
+        }</select></div>`).join("")}
+        <div class="labels">
+          <div></div>
+          ${lanes.map(l => `<div class="row-label ${l.id}">${l.syl}<br>${l.name}</div>`).join("")}
+        </div>
+        ${b.beats.map((bt, i) => beatHtml(bt, i, bi, lanes)).join("")}
+      </div>`;
+    const name = el.querySelector(".block-name");
+    name.value = b.name;
+    name.oninput = () => { b.name = name.value; save(); };
+    el.querySelectorAll("select").forEach(sel => {
+      sel.onchange = () => { regrid(b.beats[+sel.dataset.i], +sel.value); save(); render(); };
+    });
+    el.querySelectorAll(".cell").forEach(c => {
+      c.onclick = () => {
+        const bt = b.beats[+c.dataset.b], k = c.dataset.k, s = +c.dataset.s;
+        // misma fuerza que el pincel apaga la casilla; otra fuerza la cambia
+        bt[k][s] = bt[k][s] === brush ? 0 : brush;
+        c.textContent = txt(k, bt[k][s]);
+        c.className = c.className.replace(/lvl\d/, "lvl" + bt[k][s]);
+        save();
+      };
+    });
+    el.querySelector('[data-act="practice"]').onclick = () => startMetro(bi);
+    el.querySelector('[data-act="dup"]').onclick = () => { state.blocks.splice(bi + 1, 0, structuredClone(b)); save(); render(); };
+    el.querySelector('[data-act="del"]').onclick = () => {
+      if (confirm("¿Borrar este bloque?")) { state.blocks.splice(bi, 1); save(); render(); }
+    };
+    root.appendChild(el);
+  });
+  updateMetroUI();
+}
+
+function beatHtml(bt, i, bi, lanes) {
+  const n = bt.div;
+  const row = fn => Array.from({ length: n }, (_, s) => fn(s, s === 0 ? "first" : "")).join("");
+  return `<div class="beat" style="grid-template-columns: repeat(${n}, 1fr)">
+    ${row((s, f) => `<div class="h ${f} ${s === 0 ? "num" : ""}" data-blk="${bi}" data-b="${i}" data-s="${s}">${s === 0 ? i + 1 : SUBS[n][s]}</div>`)}
+    ${lanes.map(l => row((s, f) =>
+      `<div class="cell ${l.id} ${f} lvl${bt[l.id][s]}" data-blk="${bi}" data-b="${i}" data-k="${l.id}" data-s="${s}">${txt(l.id, bt[l.id][s])}</div>`)).join("")}
+  </div>`;
+}
+
+document.querySelectorAll('[name="brush"]').forEach(r => { r.onchange = () => { brush = +r.value; }; });
+$("title").oninput = e => { state.title = e.target.value; save(); };
+$("add").onclick = () => { state.blocks.push(emptyBlock("Bloque " + (state.blocks.length + 1))); save(); render(); };
+$("print").onclick = () => window.print();
+$("perPage").onchange = e => document.body.classList.toggle("page-per-block", e.target.checked);
+$("reset").onclick = () => { if (confirm("Esto reemplaza lo que tenés por el ejemplo. ¿Seguir?")) { stopMetro(); state = fixState(structuredClone(EXAMPLE)); save(); render(); } };
+$("export").onclick = () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.title || "ejercicio").replace(/[^\w\-]+/g, "_") + ".json";
+  a.click();
+};
+$("import").onclick = () => {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".json,application/json";
+  inp.onchange = async () => {
+    try {
+      const data = JSON.parse(await inp.files[0].text());
+      const ok = Array.isArray(data.blocks) && data.blocks.every(b => Array.isArray(b.beats) && b.beats.length === BEATS &&
+        b.beats.every(t => SUBS[t.div] && t.pa.length === t.div && t.tun.length === t.div));
+      if (!ok) throw 0;
+      state = fixState(data); save(); render();
+    } catch (e) { alert("Ese archivo no tiene el formato esperado."); }
+  };
+  inp.click();
+};
+
+// ---------- Biblioteca: guardar ejercicios con nombre ----------
+const LIB_KEY = "bateria-biblioteca-v1";
+const readLib = () => { try { const a = JSON.parse(localStorage.getItem(LIB_KEY)); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+const writeLib = a => { try { localStorage.setItem(LIB_KEY, JSON.stringify(a)); return true; } catch (e) { return false; } };
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "e" + Date.now());
+const hasContent = () => state.blocks.some(b => b.beats.some(t => ALL.some(k => t[k].some(Boolean))));
+
+// Hay cambios sin guardar si el ejercicio tiene algo marcado y no coincide con su copia guardada.
+function isDirty() {
+  if (!hasContent()) return false;
+  const saved = readLib().find(e => e.id === state.id);
+  return !saved || JSON.stringify(fixState(structuredClone(saved.data))) !== JSON.stringify(state);
+}
+const okToReplace = () => !isDirty() || confirm("El ejercicio actual tiene cambios sin guardar y se va a reemplazar. ¿Seguir?");
+
+function saveExercise() {
+  if (!(state.title || "").trim()) {
+    const n = prompt("¿Cómo se llama este ejercicio?", "");
+    if (!n || !n.trim()) return;
+    state.title = n.trim();
+  }
+  state.id = state.id || newId();
+  const lib = readLib();
+  const entry = { id: state.id, title: state.title, savedAt: Date.now(), data: structuredClone(state) };
+  const i = lib.findIndex(e => e.id === state.id);
+  if (i >= 0) lib[i] = entry; else lib.unshift(entry);
+  if (!writeLib(lib)) return showNotice("No pude guardar: el navegador no deja usar el almacenamiento. Usá Exportar JSON para no perder el ejercicio.", true);
+  save(); render();
+  showNotice(`<b>Guardado:</b> ${esc(state.title)}. Lo encontrás en Mis ejercicios.`);
+}
+
+function loadExercise(next) {
+  stopMetro();
+  state = fixState(next);
+  save(); render();
+  $("lib").close();
+}
+
+function showLib() {
+  const lib = readLib().sort((a, b) => b.savedAt - a.savedAt);
+  $("libList").innerHTML = lib.length ? lib.map(e => `<li>
+      <div><b>${esc(e.title)}</b><small>${e.data.blocks.length} bloque(s) · ${new Date(e.savedAt).toLocaleString("es-AR")}</small></div>
+      <button data-open="${e.id}">Abrir</button><button data-del="${e.id}">Borrar</button></li>`).join("")
+    : `<li class="empty">Todavía no guardaste ningún ejercicio.</li>`;
+  $("libList").querySelectorAll("[data-open]").forEach(b => b.onclick = () => {
+    const e = readLib().find(x => x.id === b.dataset.open);
+    if (e && okToReplace()) loadExercise(structuredClone(e.data));
+  });
+  $("libList").querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+    const e = readLib().find(x => x.id === b.dataset.del);
+    if (e && confirm(`¿Borrar "${e.title}" de Mis ejercicios?`)) { writeLib(readLib().filter(x => x.id !== e.id)); showLib(); }
+  });
+  if (!$("lib").open) $("lib").showModal();
+}
+
+$("save").onclick = saveExercise;
+$("openLib").onclick = showLib;
+$("libClose").onclick = () => $("lib").close();
+function newExercise() {
+  if (okToReplace()) {
+    loadExercise({ title: "", blocks: [emptyBlock("Bloque 1")], lanes: ["pa", "tun"] });
+    $("title").focus();
+  }
+}
+$("libNew").onclick = newExercise;
+$("newEx").onclick = newExercise;
+
+// ---------- Metrónomo ----------
+const BPM_STORE = "bateria-bpm";
+let actx = null, mTimer = null, mNext = 0, mPos = 0, mTarget = null, mRun = 0;
+const bpmEl = $("bpm");
+try { bpmEl.value = localStorage.getItem(BPM_STORE) || 80; } catch (e) {}
+const getBpm = () => Math.min(240, Math.max(30, +bpmEl.value || 80));
+const setBpm = v => { bpmEl.value = Math.min(240, Math.max(30, v)); try { localStorage.setItem(BPM_STORE, bpmEl.value); } catch (e) {} };
+
+// Volumen de cada instrumento (0 a 1 en el control; la ganancia real es el cuadrado, que se siente más parejo).
+const VOL_KEY = "bateria-volumen";
+const vol = { pa: 1, tun: 1, ts: 1, click: 1 };
+try { Object.assign(vol, JSON.parse(localStorage.getItem(VOL_KEY))); } catch (e) {}
+let buses = null;
+function bus(k) {
+  if (!buses) {
+    buses = {};
+    Object.keys(vol).forEach(id => {
+      const g = actx.createGain();
+      g.gain.value = vol[id] * vol[id];
+      g.connect(actx.destination);
+      buses[id] = g;
+    });
+  }
+  return buses[k];
+}
+document.querySelectorAll("[data-vol]").forEach(inp => {
+  inp.value = Math.round(vol[inp.dataset.vol] * 100);
+  inp.oninput = () => {
+    const id = inp.dataset.vol, v = inp.value / 100;
+    vol[id] = v;
+    if (buses) buses[id].gain.value = v * v;
+    try { localStorage.setItem(VOL_KEY, JSON.stringify(vol)); } catch (e) {}
+  };
+});
+
+function click(time, freq, gain) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(gain, time);
+  g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+  o.connect(g).connect(bus("click"));
+  o.start(time); o.stop(time + 0.06);
+}
+
+// Sonidos de batería sintetizados (no usan archivos de audio).
+let noiseBuf = null;
+function noiseSrc() {
+  if (!noiseBuf) {
+    noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const s = actx.createBufferSource();
+  s.buffer = noiseBuf;
+  return s;
+}
+function env(t, peak, dur) {
+  const g = actx.createGain();
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  return g;
+}
+function kick(t, v = 1) {
+  const o = actx.createOscillator(), g = env(t, v, 0.35);
+  o.frequency.setValueAtTime(150, t);
+  o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+  o.connect(g).connect(bus("tun"));
+  o.start(t); o.stop(t + 0.4);
+}
+function snare(t, v = 1) {
+  const n = noiseSrc(), hp = actx.createBiquadFilter(), g = env(t, 0.7 * v, 0.2);
+  hp.type = "highpass"; hp.frequency.value = 1200;
+  n.connect(hp).connect(g).connect(bus("pa"));
+  n.start(t); n.stop(t + 0.25);
+  const o = actx.createOscillator(), og = env(t, 0.45 * v, 0.1);
+  o.type = "triangle"; o.frequency.value = 190;
+  o.connect(og).connect(bus("pa"));
+  o.start(t); o.stop(t + 0.12);
+}
+function hat(t, v = 1) {
+  const n = noiseSrc(), hp = actx.createBiquadFilter(), g = env(t, 0.4 * v, 0.06);
+  hp.type = "highpass"; hp.frequency.value = 7000;
+  n.connect(hp).connect(g).connect(bus("ts"));
+  n.start(t); n.stop(t + 0.1);
+}
+const DRUM = { pa: (t, v) => snare(t, v), tun: (t, v) => kick(t, v), ts: (t, v) => hat(t, v) };
+
+// Marca en pantalla el golpe que suena en el instante `at` (bi = bloque, null si no hay bloque).
+function mark(at, bi, beat, s) {
+  const run = mRun;
+  setTimeout(() => {
+    if (run !== mRun || !mTimer) return;
+    document.querySelectorAll(".now").forEach(e => e.classList.remove("now"));
+    if (s === 0) $("dots").querySelectorAll("i").forEach((d, i) => d.classList.toggle("on", i === beat));
+    if (bi === null) return;
+    document.querySelectorAll(`[data-blk="${bi}"][data-b="${beat}"][data-s="${s}"]`).forEach(e => e.classList.add("now"));
+    if (mTarget === "all" && beat === 0 && s === 0)
+      document.querySelectorAll(".block")[bi]?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, Math.max(0, (at - actx.currentTime) * 1000));
+}
+
+// Programa un pulso entero: un clic en el pulso y, si se pide, uno en cada golpe de entre medio.
+function schedule() {
+  while (mNext < actx.currentTime + 0.12) {
+    const beatDur = 60 / getBpm(), beat = mPos % BEATS, bar = Math.floor(mPos / BEATS);
+    let bi = null;
+    if (mTarget === "all") bi = bar % state.blocks.length;
+    else if (typeof mTarget === "number") bi = mTarget;
+    const blk = bi === null ? null : state.blocks[bi];
+    if (bi !== null && !blk) { stopMetro(); return; }
+    const div = blk ? blk.beats[beat].div : 2;
+    for (let s = 0; s < div; s++) {
+      const at = mNext + s * beatDur / div;
+      if ($("mClick").checked || !blk) {
+        if (s === 0) click(at, beat === 0 ? 1400 : 1000, 0.5);
+        else if ($("mSub").checked) click(at, 700, 0.25);
+      }
+      if (blk && $("mDrums").checked)
+        activeLanes().forEach(l => { const v = blk.beats[beat][l.id][s]; if (v) DRUM[l.id](at, VEL[v]); });
+      mark(at, bi, beat, s);
+    }
+    mNext += beatDur;
+    mPos++;
+  }
+}
+
+function updateMetroUI() {
+  const on = !!mTimer;
+  $("mPlay").textContent = on && mTarget === null ? "■ Parar" : "▶ Metrónomo";
+  $("mAll").textContent = on && mTarget === "all" ? "■ Parar" : "▶ Todos los bloques";
+  document.querySelectorAll(".practice").forEach((b, i) => {
+    b.textContent = on && mTarget === i ? "■ Parar" : "▶ Practicar";
+  });
+}
+
+// Mantiene la pantalla encendida mientras suena (si el navegador lo permite).
+let wakeLock = null;
+async function holdScreen(on) {
+  try {
+    if (on && "wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+    else if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) { wakeLock = null; }
+}
+// el bloqueo se suelta solo al cambiar de app: lo pedimos de nuevo al volver
+document.addEventListener("visibilitychange", () => { if (mTimer && document.visibilityState === "visible") holdScreen(true); });
+
+function stopMetro() {
+  holdScreen(false);
+  clearInterval(mTimer); mTimer = null; mRun++;
+  document.querySelectorAll(".now").forEach(e => e.classList.remove("now"));
+  $("dots").querySelectorAll("i").forEach(d => d.classList.remove("on"));
+  updateMetroUI();
+}
+
+// target: null = solo clic, número = ese bloque en bucle, "all" = todos los bloques en orden.
+function startMetro(target) {
+  if (mTimer && mTarget === target) return stopMetro();
+  if (mTimer) stopMetro();
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  actx.resume();
+  mTarget = target; mPos = 0; mNext = actx.currentTime + 0.1;
+  mTimer = setInterval(schedule, 25);
+  holdScreen(true);
+  updateMetroUI();
+}
+$("mPlay").onclick = () => startMetro(null);
+$("mAll").onclick = () => startMetro("all");
+$("mDown").onclick = () => setBpm(getBpm() - 5);
+$("mUp").onclick = () => setBpm(getBpm() + 5);
+bpmEl.onchange = () => setBpm(getBpm());
+
+// ---------- Lectura de fotos con la API de Anthropic ----------
+const KEY_STORE = "bateria-apikey";
+const MODEL = "claude-sonnet-5-5";
+let apiKey = "";
+try { apiKey = localStorage.getItem(KEY_STORE) || ""; } catch (e) {}
+
+function askKey() {
+  const k = prompt("Pegá tu clave de API de Anthropic (empieza con sk-ant-). Se guarda solo en este navegador.", apiKey);
+  if (k === null) return apiKey;
+  apiKey = k.trim();
+  try { localStorage.setItem(KEY_STORE, apiKey); } catch (e) {}
+  return apiKey;
+}
+
+const SYSTEM = `Leés fotos de pizarrones u hojas con ejercicios de batería escritos con onomatopeyas, y los pasás a una grilla.
+
+Notación:
+- "Tun" (o "Tum") es el bombo. "Pa" es el redoblante.
+- Los números 1 2 3 4 son los pulsos del compás. Un esquema separado (por líneas verticales o espacios) es un BLOQUE de 4 pulsos.
+- El número de pulso está justo sobre el sonido que cae en el pulso. Los sonidos escritos entre un número y el siguiente caen entre pulsos.
+- Cada pulso lleva entre 1 y 4 golpes (div). Para div=2 las posiciones son [en el pulso, en el "y"]; para div=3 [pulso, "y", "a"]; para div=4 [pulso, "e", "y", "a"]. Si no hay otra señal, usá div=2.
+- Los arrays "pa" y "tun" tienen div booleanos: true si ese golpe suena en esa posición. Si bombo y redoblante suenan a la vez, ambos son true.
+- Cada bloque tiene exactamente 4 pulsos.
+- A veces un texto aparece en una fila distinta (arriba los Pa, abajo los Tun): la fila no cambia el instrumento, lo da la sílaba.
+
+Ejemplo: bloque con Tun Tun bajo el 1, Pa Pa bajo el 2, Tun Tun bajo el 3, Pa Pa bajo el 4 =>
+pulso1 {div:2, pa:[false,false], tun:[true,true]}, pulso2 {div:2, pa:[true,true], tun:[false,false]}, pulso3 igual al 1, pulso4 igual al 2.
+
+No inventes: si algo es ambiguo, elegí la lectura más probable y descríbela en "dudas" indicando bloque y pulso.`;
+
+const TOOL = {
+  name: "guardar_ejercicio",
+  description: "Devuelve el ejercicio de batería leído de la foto.",
+  input_schema: {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Título si la foto lo tiene; si no, vacío." },
+      blocks: { type: "array", items: { type: "object", properties: {
+        name: { type: "string" },
+        beats: { type: "array", description: "4 pulsos", items: { type: "object", properties: {
+          div: { type: "integer", description: "golpes en el pulso, de 1 a 4" },
+          pa: { type: "array", items: { type: "boolean" } },
+          tun: { type: "array", items: { type: "boolean" } },
+        }, required: ["div", "pa", "tun"] } },
+      }, required: ["name", "beats"] } },
+      dudas: { type: "array", items: { type: "string" }, description: "Partes ambiguas de la foto." },
+    },
+    required: ["blocks"],
+  },
+};
+
+async function imageToBase64(file) {
+  const bmp = await createImageBitmap(file);
+  const s = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.9).split(",")[1];
+}
+
+// Deja el resultado de la IA en el formato interno, sin confiar en que venga perfecto.
+function normalizeBlock(raw, idx) {
+  const beats = Array.from({ length: BEATS }, (_, i) => {
+    const t = (raw.beats || [])[i] || {};
+    const div = Math.min(4, Math.max(1, Math.round(+t.div) || 2));
+    const fix = a => Array.from({ length: div }, (_, s) => !!(a || [])[s]);
+    return { div, pa: fix(t.pa), tun: fix(t.tun) };
+  });
+  return { name: raw.name || "Bloque " + (idx + 1), beats };
+}
+
+function showNotice(html, err) {
+  const n = $("notice");
+  n.className = err ? "err" : "";
+  n.innerHTML = `<button title="Cerrar">×</button>${html}`;
+  n.querySelector("button").onclick = () => { n.hidden = true; };
+  n.hidden = false;
+}
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+async function readPhoto(file) {
+  const btn = $("photo");
+  btn.disabled = true; btn.textContent = "Leyendo…";
+  try {
+    const data = await imageToBase64(file);
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: MODEL, max_tokens: 4096, system: SYSTEM,
+        tools: [TOOL], tool_choice: { type: "tool", name: TOOL.name },
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data } },
+          { type: "text", text: "Pasá este ejercicio a la grilla." },
+        ] }],
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 401) { apiKey = ""; try { localStorage.removeItem(KEY_STORE); } catch (e) {} }
+      throw new Error((body.error && body.error.message) || "Error " + res.status);
+    }
+    const out = (body.content || []).find(c => c.type === "tool_use");
+    if (!out || !Array.isArray(out.input.blocks) || !out.input.blocks.length) throw new Error("No encontré ningún bloque en la foto.");
+    const blocks = out.input.blocks.map(normalizeBlock);
+    if (!state.title && out.input.title) state.title = out.input.title;
+    state.blocks.push(...blocks);
+    fixState(state);
+    save(); render();
+    const dudas = (out.input.dudas || []).map(d => `<li>${esc(d)}</li>`).join("");
+    showNotice(`<b>Agregué ${blocks.length} bloque(s) al final.</b> Revisalos contra la foto antes de imprimir.` +
+      (dudas ? `<br>Partes dudosas:<ul>${dudas}</ul>` : ""));
+  } catch (e) {
+    showNotice("No pude leer la foto: " + esc(e.message), true);
+  } finally {
+    btn.disabled = false; btn.textContent = "📷 Leer foto";
+  }
+}
+
+$("apikey").onclick = askKey;
+$("photo").onclick = () => {
+  if (!apiKey && !askKey()) return;
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "image/*";
+  inp.onchange = () => { if (inp.files[0]) readPhoto(inp.files[0]); };
+  inp.click();
+};
+
+render();
+
+// App instalable y sin conexión (solo funciona servida por https o localhost, no desde un archivo).
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
