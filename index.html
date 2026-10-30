@@ -136,7 +136,6 @@
   <button id="newEx">＋ Nuevo ejercicio</button>
   <button id="save">💾 Guardar</button>
   <button id="openLib">📂 Mis ejercicios</button>
-  <button id="photo">📷 Leer foto</button>
   <button id="add">+ Bloque</button>
   <label class="opt"><input type="checkbox" id="perPage"> Un bloque por hoja</label>
   <span class="metro">
@@ -163,7 +162,6 @@
     <div>
       <button id="export">Exportar JSON</button>
       <button id="import">Importar JSON</button>
-      <button id="apikey">Clave API</button>
       <button id="reset">Cargar ejemplo</button>
     </div>
   </details>
@@ -606,77 +604,7 @@ $("mDown").onclick = () => setBpm(getBpm() - 5);
 $("mUp").onclick = () => setBpm(getBpm() + 5);
 bpmEl.onchange = () => setBpm(getBpm());
 
-// ---------- Lectura de fotos con la API de Anthropic ----------
-const KEY_STORE = "bateria-apikey";
-const MODEL = "claude-sonnet-5-5";
-let apiKey = "";
-try { apiKey = localStorage.getItem(KEY_STORE) || ""; } catch (e) {}
-
-function askKey() {
-  const k = prompt("Pegá tu clave de API de Anthropic (empieza con sk-ant-). Se guarda solo en este navegador.", apiKey);
-  if (k === null) return apiKey;
-  apiKey = k.trim();
-  try { localStorage.setItem(KEY_STORE, apiKey); } catch (e) {}
-  return apiKey;
-}
-
-const SYSTEM = `Leés fotos de pizarrones u hojas con ejercicios de batería escritos con onomatopeyas, y los pasás a una grilla.
-
-Notación:
-- "Tun" (o "Tum") es el bombo. "Pa" es el redoblante.
-- Los números 1 2 3 4 son los pulsos del compás. Un esquema separado (por líneas verticales o espacios) es un BLOQUE de 4 pulsos.
-- El número de pulso está justo sobre el sonido que cae en el pulso. Los sonidos escritos entre un número y el siguiente caen entre pulsos.
-- Cada pulso lleva entre 1 y 4 golpes (div). Para div=2 las posiciones son [en el pulso, en el "y"]; para div=3 [pulso, "y", "a"]; para div=4 [pulso, "e", "y", "a"]. Si no hay otra señal, usá div=2.
-- Los arrays "pa" y "tun" tienen div booleanos: true si ese golpe suena en esa posición. Si bombo y redoblante suenan a la vez, ambos son true.
-- Cada bloque tiene exactamente 4 pulsos.
-- A veces un texto aparece en una fila distinta (arriba los Pa, abajo los Tun): la fila no cambia el instrumento, lo da la sílaba.
-
-Ejemplo: bloque con Tun Tun bajo el 1, Pa Pa bajo el 2, Tun Tun bajo el 3, Pa Pa bajo el 4 =>
-pulso1 {div:2, pa:[false,false], tun:[true,true]}, pulso2 {div:2, pa:[true,true], tun:[false,false]}, pulso3 igual al 1, pulso4 igual al 2.
-
-No inventes: si algo es ambiguo, elegí la lectura más probable y descríbela en "dudas" indicando bloque y pulso.`;
-
-const TOOL = {
-  name: "guardar_ejercicio",
-  description: "Devuelve el ejercicio de batería leído de la foto.",
-  input_schema: {
-    type: "object",
-    properties: {
-      title: { type: "string", description: "Título si la foto lo tiene; si no, vacío." },
-      blocks: { type: "array", items: { type: "object", properties: {
-        name: { type: "string" },
-        beats: { type: "array", description: "4 pulsos", items: { type: "object", properties: {
-          div: { type: "integer", description: "golpes en el pulso, de 1 a 4" },
-          pa: { type: "array", items: { type: "boolean" } },
-          tun: { type: "array", items: { type: "boolean" } },
-        }, required: ["div", "pa", "tun"] } },
-      }, required: ["name", "beats"] } },
-      dudas: { type: "array", items: { type: "string" }, description: "Partes ambiguas de la foto." },
-    },
-    required: ["blocks"],
-  },
-};
-
-async function imageToBase64(file) {
-  const bmp = await createImageBitmap(file);
-  const s = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
-  const c = document.createElement("canvas");
-  c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
-  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
-  return c.toDataURL("image/jpeg", 0.9).split(",")[1];
-}
-
-// Deja el resultado de la IA en el formato interno, sin confiar en que venga perfecto.
-function normalizeBlock(raw, idx) {
-  const beats = Array.from({ length: BEATS }, (_, i) => {
-    const t = (raw.beats || [])[i] || {};
-    const div = Math.min(4, Math.max(1, Math.round(+t.div) || 2));
-    const fix = a => Array.from({ length: div }, (_, s) => !!(a || [])[s]);
-    return { div, pa: fix(t.pa), tun: fix(t.tun) };
-  });
-  return { name: raw.name || "Bloque " + (idx + 1), beats };
-}
-
+// ---------- Avisos ----------
 function showNotice(html, err) {
   const n = $("notice");
   n.className = err ? "err" : "";
@@ -685,59 +613,6 @@ function showNotice(html, err) {
   n.hidden = false;
 }
 const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-
-async function readPhoto(file) {
-  const btn = $("photo");
-  btn.disabled = true; btn.textContent = "Leyendo…";
-  try {
-    const data = await imageToBase64(file);
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-      },
-      body: JSON.stringify({
-        model: MODEL, max_tokens: 4096, system: SYSTEM,
-        tools: [TOOL], tool_choice: { type: "tool", name: TOOL.name },
-        messages: [{ role: "user", content: [
-          { type: "image", source: { type: "base64", media_type: "image/jpeg", data } },
-          { type: "text", text: "Pasá este ejercicio a la grilla." },
-        ] }],
-      }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      if (res.status === 401) { apiKey = ""; try { localStorage.removeItem(KEY_STORE); } catch (e) {} }
-      throw new Error((body.error && body.error.message) || "Error " + res.status);
-    }
-    const out = (body.content || []).find(c => c.type === "tool_use");
-    if (!out || !Array.isArray(out.input.blocks) || !out.input.blocks.length) throw new Error("No encontré ningún bloque en la foto.");
-    const blocks = out.input.blocks.map(normalizeBlock);
-    if (!state.title && out.input.title) state.title = out.input.title;
-    state.blocks.push(...blocks);
-    fixState(state);
-    save(); render();
-    const dudas = (out.input.dudas || []).map(d => `<li>${esc(d)}</li>`).join("");
-    showNotice(`<b>Agregué ${blocks.length} bloque(s) al final.</b> Revisalos contra la foto antes de imprimir.` +
-      (dudas ? `<br>Partes dudosas:<ul>${dudas}</ul>` : ""));
-  } catch (e) {
-    showNotice("No pude leer la foto: " + esc(e.message), true);
-  } finally {
-    btn.disabled = false; btn.textContent = "📷 Leer foto";
-  }
-}
-
-$("apikey").onclick = askKey;
-$("photo").onclick = () => {
-  if (!apiKey && !askKey()) return;
-  const inp = document.createElement("input");
-  inp.type = "file"; inp.accept = "image/*";
-  inp.onchange = () => { if (inp.files[0]) readPhoto(inp.files[0]); };
-  inp.click();
-};
 
 render();
 
