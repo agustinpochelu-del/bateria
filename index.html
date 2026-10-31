@@ -21,6 +21,10 @@
     --pa: #c2410c;   /* redoblante */
     --tun: #1d4ed8;  /* bombo */
     --ts: #15803d;   /* hi-hat */
+    --ride: #0e7490;
+    --tom1: #7e22ce;
+    --tom2: #be185d;
+    --crash: #a16207;
     --now: #fde68a;
   }
   * { box-sizing: border-box; }
@@ -56,7 +60,6 @@
   .brush small { color: var(--muted); }
   .cell.lvl3 { font-weight: 900; background: color-mix(in srgb, currentColor 14%, transparent); }
   .cell.lvl1 { font-weight: 500; font-size: clamp(10px, 2vw, 16px); opacity: .8; }
-  .mixer input[type=range] { width: 80px; }
   .dots { display: flex; gap: 5px; margin-left: 4px; }
   .dots i { width: 14px; height: 14px; border-radius: 50%; background: var(--line); }
   .dots i.on { background: var(--tun); }
@@ -95,6 +98,17 @@
   .legend button { font-size: 12px; border: 1px dashed var(--muted); background: #fff; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
   .legend b.ts { color: var(--ts); }
   .row-label.ts { color: var(--ts); } .cell.ts { color: var(--ts); }
+  .legend b.ride, .row-label.ride, .cell.ride { color: var(--ride); }
+  .legend b.tom1, .row-label.tom1, .cell.tom1 { color: var(--tom1); }
+  .legend b.tom2, .row-label.tom2, .cell.tom2 { color: var(--tom2); }
+  .legend b.crash, .row-label.crash, .cell.crash { color: var(--crash); }
+  .legend { flex-wrap: wrap; align-items: center; row-gap: 8px; }
+  .legend .chip { display: inline-flex; align-items: center; gap: 4px; }
+  .legend .chip button { border: 0; background: none; color: var(--muted); font-size: 15px; line-height: 1; padding: 0 2px; }
+  .legend select { font: inherit; font-size: 12px; border: 1px dashed var(--muted); background: #fff; border-radius: 6px; padding: 3px 6px; cursor: pointer; }
+  .more.left > div { left: 0; right: auto; }
+  .mixer > div label { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; color: #55555a; min-width: 230px; }
+  .mixer input[type=range] { width: 120px; }
   .beat { grid-auto-flow: row; border-left: 2px solid var(--ink); }
   .row-label { display: flex; align-items: center; font-size: clamp(9px, 1.6vw, 12px); font-weight: 700; line-height: 1.15; }
   .row-label.pa { color: var(--pa); } .row-label.tun { color: var(--tun); }
@@ -118,7 +132,7 @@
   @media print {
     @page { size: A4 landscape; margin: 12mm; }
     body { background: #fff; }
-    .toolbar, .hint, .block-head button, .ctl, #notice, .legend button, .brush { display: none !important; }
+    .toolbar, .hint, .block-head button, .ctl, #notice, .legend button, .legend select, .brush { display: none !important; }
     .now { background: transparent !important; }
     .sheet { max-width: none; margin: 0; padding: 0; }
     .block { border-radius: 0; }
@@ -136,6 +150,7 @@
   <button id="newEx">＋ Nuevo ejercicio</button>
   <button id="save">💾 Guardar</button>
   <button id="openLib">📂 Mis ejercicios</button>
+  <button id="share">📤 Compartir</button>
   <button id="add">+ Bloque</button>
   <label class="opt"><input type="checkbox" id="perPage"> Un bloque por hoja</label>
   <span class="metro">
@@ -149,13 +164,10 @@
     <label class="opt"><input type="checkbox" id="mSub"> marcar el "y"</label>
     <span class="dots" id="dots"><i></i><i></i><i></i><i></i></span>
   </span>
-  <span class="metro mixer">
-    <span class="opt">🎚 Volumen</span>
-    <label class="opt">Redoblante <input type="range" min="0" max="100" data-vol="pa"></label>
-    <label class="opt">Bombo <input type="range" min="0" max="100" data-vol="tun"></label>
-    <label class="opt" id="vHat" hidden>Hi-hat <input type="range" min="0" max="100" data-vol="ts"></label>
-    <label class="opt">Clic <input type="range" min="0" max="100" data-vol="click"></label>
-  </span>
+  <details class="more left mixer">
+    <summary>🎚 Volumen</summary>
+    <div id="mixer"></div>
+  </details>
   <span class="spacer"></span>
   <details class="more">
     <summary>⋯ Más</summary>
@@ -172,6 +184,13 @@
   <ul id="libList"></ul>
 </dialog>
 
+<dialog id="shared">
+  <div class="lib-head"><h2>Te compartieron un ejercicio</h2></div>
+  <p><b id="sharedTitle"></b><br><small id="sharedInfo"></small></p>
+  <p class="small">Si lo abrís, reemplaza lo que tenés en pantalla. Si lo guardás en Mis ejercicios, queda aparte y no toca nada.</p>
+  <div class="lib-head"><button id="sharedOpen">Abrir</button><button id="sharedSave">Guardar en Mis ejercicios</button><span class="spacer"></span><button id="sharedIgnore">Ignorar</button></div>
+</dialog>
+
 <div class="sheet">
   <input class="sheet-title" id="title" placeholder="Título del ejercicio">
   <div class="legend" id="legend"></div>
@@ -183,7 +202,7 @@
   </div>
   <div id="notice" hidden></div>
   <div id="blocks"></div>
-  <p class="hint">Hacé clic en una casilla para prender o apagar el golpe. El número (el pulso) está sobre el golpe que cae justo en el pulso; las demás casillas son golpes entre un pulso y el siguiente. Cada pulso tiene su propio selector de cuántos golpes lleva. Si dos golpes caen en el mismo momento, prendé las dos filas. El ejercicio en pantalla se recuerda solo, pero para conservarlo con nombre usá <b>Guardar</b>: queda en <b>Mis ejercicios</b>, en este navegador. Para llevarlo a otra computadora o hacer una copia, usá <b>Exportar JSON</b>.</p>
+  <p class="hint">Hacé clic en una casilla para prender o apagar el golpe. El número (el pulso) está sobre el golpe que cae justo en el pulso; las demás casillas son golpes entre un pulso y el siguiente. Cada pulso tiene su propio selector de cuántos golpes lleva. Si dos golpes caen en el mismo momento, prendé las dos filas. El ejercicio en pantalla se recuerda solo, pero para conservarlo con nombre usá <b>Guardar</b>: queda en <b>Mis ejercicios</b>, en este navegador. Para mandárselo a alguien (o pasarlo de la PC al celular) usá <b>Compartir</b>: genera un enlace que, al abrirlo, trae el ejercicio. Si preferís un archivo de copia, está <b>Exportar JSON</b> en <b>⋯ Más</b>. Arriba, en la leyenda, podés agregar o quitar instrumentos.</p>
 </div>
 
 <script>
@@ -192,11 +211,16 @@ const BEATS = 4;
 const SUBS = { 1: [""], 2: ["", "y"], 3: ["", "y", "a"], 4: ["", "e", "y", "a"] };
 const LABEL = { 1: "1 golpe", 2: "2 golpes", 3: "3 golpes", 4: "4 golpes" };
 
-// Instrumentos. "ts" es opcional y se activa desde la leyenda; cambiá su sílaba o nombre acá si el profe usa otra.
+// Instrumentos, en el orden en que se dibujan (de arriba a abajo, como en la batería).
+// Se agregan o quitan desde la leyenda. Para cambiar una sílaba o un nombre, editá esta lista.
 const LANES = [
-  { id: "pa",  syl: "Pa",  name: "redoblante" },
-  { id: "tun", syl: "Tun", name: "bombo" },
-  { id: "ts",  syl: "Tss", name: "hi-hat" },
+  { id: "crash", syl: "Cras", name: "platillo" },
+  { id: "ts",    syl: "Tss",  name: "hi-hat" },
+  { id: "ride",  syl: "Ting", name: "ride" },
+  { id: "tom1",  syl: "Tom",  name: "tom 1" },
+  { id: "tom2",  syl: "Dom",  name: "tom 2" },
+  { id: "pa",    syl: "Pa",   name: "redoblante" },
+  { id: "tun",   syl: "Tun",  name: "bombo" },
 ];
 const ALL = LANES.map(l => l.id);
 // Cada golpe vale 0 = no suena, 1 = suave, 2 = normal, 3 = fuerte.
@@ -204,7 +228,8 @@ const emptyBeat = (div = 2) => Object.fromEntries([["div", div], ...ALL.map(k =>
 // Completa lo que falte (datos viejos, fotos, archivos importados) para que todo pulso tenga todos los instrumentos.
 // Los datos anteriores guardaban true/false: true pasa a "normal".
 function fixState(st) {
-  if (!Array.isArray(st.lanes)) st.lanes = ["pa", "tun"];
+  st.lanes = (Array.isArray(st.lanes) ? st.lanes : []).filter(k => ALL.includes(k));
+  if (!st.lanes.length) st.lanes = ["pa", "tun"];
   st.blocks.forEach(b => b.beats.forEach(t => ALL.forEach(k => {
     t[k] = Array.from({ length: t.div }, (_, s) => {
       const x = (t[k] || [])[s];
@@ -239,7 +264,7 @@ try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
 if (!state || !Array.isArray(state.blocks)) state = structuredClone(EXAMPLE);
 fixState(state);
 
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} scheduleShare(); };
 const $ = id => document.getElementById(id);
 const lane = k => LANES.find(l => l.id === k);
 const activeLanes = () => LANES.filter(l => state.lanes.includes(l.id));
@@ -248,17 +273,43 @@ let brush = 2;                            // fuerza con la que se marcan las cas
 // En papel: fuerte = MAYÚSCULAS y fondo, normal = Pa, suave = (pa)
 const txt = (k, v) => !v ? "" : v === 3 ? lane(k).syl.toUpperCase() : v === 1 ? `(${lane(k).syl.toLowerCase()})` : lane(k).syl;
 
+// Leyenda: los instrumentos en uso (con × para quitarlos) y un selector para sumar los que faltan.
+// Quitar un instrumento solo lo oculta: lo que tenía marcado se conserva por si lo volvés a agregar.
 function renderLegend() {
-  const ts = lane("ts");
-  $("legend").innerHTML = LANES.filter(l => l.id !== "ts").map(l =>
-    `<span><b class="${l.id}">${l.syl}</b> = ${l.name}</span>`).join("") +
-    (state.lanes.includes("ts")
-      ? `<span><b class="ts">${ts.syl}</b> = ${ts.name}</span><button id="lane-ts">quitar ${ts.name}</button>`
-      : `<button id="lane-ts">+ agregar ${ts.name}</button>`);
-  $("lane-ts").onclick = () => {
-    state.lanes = state.lanes.includes("ts") ? state.lanes.filter(x => x !== "ts") : [...state.lanes, "ts"];
+  const inactive = LANES.filter(l => !state.lanes.includes(l.id));
+  const many = state.lanes.length > 1;
+  $("legend").innerHTML = activeLanes().map(l =>
+    `<span class="chip"><b class="${l.id}">${l.syl}</b> = ${l.name}${many ? `<button data-rm="${l.id}" title="Quitar ${l.name}">×</button>` : ""}</span>`).join("") +
+    (inactive.length
+      ? `<select id="addLane"><option value="">＋ Agregar instrumento…</option>${inactive.map(l => `<option value="${l.id}">${l.name} (${l.syl})</option>`).join("")}</select>`
+      : "");
+  $("legend").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => {
+    stopMetro();
+    state.lanes = state.lanes.filter(x => x !== b.dataset.rm);
+    save(); render();
+  });
+  const add = $("addLane");
+  if (add) add.onchange = () => {
+    if (!add.value) return;
+    state.lanes.push(add.value);
     save(); render();
   };
+}
+
+// Un control de volumen por instrumento en uso, más el clic.
+function renderMixer() {
+  $("mixer").innerHTML = activeLanes().map(l =>
+    `<label>${l.name} <input type="range" min="0" max="100" data-vol="${l.id}"></label>`).join("") +
+    `<label>clic <input type="range" min="0" max="100" data-vol="click"></label>`;
+  $("mixer").querySelectorAll("[data-vol]").forEach(inp => {
+    inp.value = Math.round(vol[inp.dataset.vol] * 100);
+    inp.oninput = () => {
+      const id = inp.dataset.vol, v = inp.value / 100;
+      vol[id] = v;
+      if (buses) buses[id].gain.value = v * v;
+      try { localStorage.setItem(VOL_KEY, JSON.stringify(vol)); } catch (e) {}
+    };
+  });
 }
 
 // Cambia cuántos golpes lleva un pulso; conserva los golpes que caen en el mismo lugar.
@@ -277,8 +328,9 @@ function regrid(beat, newDiv) {
 function render() {
   $("title").value = state.title || "";
   renderLegend();
-  $("vHat").hidden = !state.lanes.includes("ts");
+  renderMixer();
   const lanes = activeLanes();
+  const rowH = lanes.length > 4 ? 44 : 54;   // con muchos instrumentos, filas más bajas
   const root = $("blocks");
   root.innerHTML = "";
   state.blocks.forEach((b, bi) => {
@@ -291,7 +343,7 @@ function render() {
         <button data-act="dup">Duplicar</button>
         <button data-act="del">Borrar</button>
       </div>
-      <div class="outer" style="--rows: 44px repeat(${lanes.length}, 54px)">
+      <div class="outer" style="--rows: 44px repeat(${lanes.length}, ${rowH}px)">
         <div class="ctl"></div>
         ${b.beats.map((bt, i) => `<div class="ctl"><select data-i="${i}">${
           [1, 2, 3, 4].map(d => `<option value="${d}" ${d === bt.div ? "selected" : ""}>${LABEL[d]}</option>`).join("")
@@ -344,6 +396,134 @@ $("add").onclick = () => { state.blocks.push(emptyBlock("Bloque " + (state.block
 $("print").onclick = () => window.print();
 $("perPage").onchange = e => document.body.classList.toggle("page-per-block", e.target.checked);
 $("reset").onclick = () => { if (confirm("Esto reemplaza lo que tenés por el ejemplo. ¿Seguir?")) { stopMetro(); state = fixState(structuredClone(EXAMPLE)); save(); render(); } };
+// Valida y limpia un ejercicio que viene de afuera (archivo o enlace): nada de lo recibido se usa sin pasar por acá.
+function cleanExercise(data) {
+  const bad = () => { throw new Error("formato"); };
+  if (!data || typeof data !== "object" || !Array.isArray(data.blocks) || !data.blocks.length || data.blocks.length > 60) bad();
+  const out = { title: String(data.title || "").slice(0, 100), lanes: data.lanes, blocks: [] };
+  data.blocks.forEach((b, i) => {
+    if (!b || !Array.isArray(b.beats) || b.beats.length !== BEATS) bad();
+    out.blocks.push({
+      name: String(b.name || "Bloque " + (i + 1)).slice(0, 100),
+      beats: b.beats.map(t => {
+        const div = t && +t.div;
+        if (!SUBS[div]) bad();
+        const beat = { div };
+        ALL.forEach(k => { beat[k] = Array.isArray(t[k]) ? t[k].slice(0, div) : []; });
+        return beat;
+      }),
+    });
+  });
+  return fixState(out);
+}
+
+// ---------- Compartir por enlace ----------
+// El ejercicio viaja dentro del propio enlace (después del #), comprimido: no hay servidor de por medio.
+const PUBLISHED_URL = "https://agustinpochelu-del.github.io/bateria/";
+const shareBase = () => location.protocol.startsWith("http") ? location.origin + location.pathname : PUBLISHED_URL;
+
+function toB64url(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function fromB64url(str) {
+  const s = atob(str.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(s, c => c.charCodeAt(0));
+}
+async function collect(stream, cap = Infinity) {
+  const reader = stream.getReader(), parts = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.length;
+    if (n > cap) throw new Error("demasiado grande");
+    parts.push(value);
+  }
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+async function packExercise() {
+  const slim = {   // solo los instrumentos en uso, para que el enlace sea corto
+    title: state.title || "", lanes: state.lanes,
+    blocks: state.blocks.map(b => ({ name: b.name, beats: b.beats.map(t => {
+      const o = { div: t.div };
+      state.lanes.forEach(k => { o[k] = t[k]; });
+      return o;
+    }) })),
+  };
+  const raw = new TextEncoder().encode(JSON.stringify(slim));
+  if (typeof CompressionStream === "undefined") return "j" + toB64url(raw);
+  return "z" + toB64url(await collect(new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"))));
+}
+async function unpackExercise(code) {
+  if (code.length > 40000) throw new Error("demasiado grande");
+  const bytes = fromB64url(code.slice(1));
+  let raw;
+  if (code[0] === "z") raw = await collect(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw")), 400000);
+  else if (code[0] === "j") raw = bytes;
+  else throw new Error("formato");
+  return cleanExercise(JSON.parse(new TextDecoder().decode(raw)));
+}
+
+// El enlace se prepara de antemano: en el iPhone, compartir solo funciona si se pide justo al tocar el botón.
+let shareUrl = null, shareTimer = null;
+function scheduleShare() {
+  shareUrl = null;
+  clearTimeout(shareTimer);
+  shareTimer = setTimeout(async () => { try { shareUrl = shareBase() + "#e=" + await packExercise(); } catch (e) {} }, 300);
+}
+$("share").onclick = async () => {
+  const url = shareUrl || shareBase() + "#e=" + await packExercise();
+  const title = state.title || "Ejercicio de batería";
+  if (navigator.share) {
+    try { await navigator.share({ title, text: "Ejercicio de batería: " + title, url }); return; }
+    catch (e) { if (e.name === "AbortError") return; }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showNotice("<b>Enlace copiado.</b> Pegalo en un mensaje: quien lo abra va a ver el ejercicio.");
+  } catch (e) { prompt("Copiá este enlace:", url); }
+};
+
+// Al abrir un enlace compartido: se pregunta qué hacer, nunca se pisa nada solo.
+let pendingShared = null;
+async function checkSharedLink() {
+  const m = location.hash.match(/^#e=([A-Za-z0-9_-]+)$/);
+  if (!m) return;
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}   // que recargar no vuelva a preguntar
+  try {
+    pendingShared = await unpackExercise(m[1]);
+    $("sharedTitle").textContent = pendingShared.title || "(sin título)";
+    $("sharedInfo").textContent = pendingShared.blocks.length + " bloque(s) · " +
+      pendingShared.lanes.map(k => lane(k).name).join(", ");
+    $("shared").showModal();
+  } catch (e) {
+    showNotice("El enlace que abriste no se pudo leer. Pedí que te lo manden de nuevo.", true);
+  }
+}
+$("sharedIgnore").onclick = () => { pendingShared = null; $("shared").close(); };
+$("sharedOpen").onclick = () => {
+  if (!pendingShared || !okToReplace()) return;
+  stopMetro(); state = pendingShared; pendingShared = null;
+  save(); render(); $("shared").close();
+};
+$("sharedSave").onclick = () => {
+  if (!pendingShared) return;
+  const ex = pendingShared; ex.id = newId();
+  if (!ex.title.trim()) ex.title = "Ejercicio compartido";
+  const lib = readLib();
+  lib.unshift({ id: ex.id, title: ex.title, savedAt: Date.now(), data: ex });
+  pendingShared = null;
+  $("shared").close();
+  if (!writeLib(lib)) return showNotice("No pude guardar: el navegador no deja usar el almacenamiento.", true);
+  showNotice(`<b>Guardado:</b> ${esc(ex.title)}. Lo encontrás en Mis ejercicios.`);
+};
+
 $("export").onclick = () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
@@ -356,11 +536,8 @@ $("import").onclick = () => {
   inp.type = "file"; inp.accept = ".json,application/json";
   inp.onchange = async () => {
     try {
-      const data = JSON.parse(await inp.files[0].text());
-      const ok = Array.isArray(data.blocks) && data.blocks.every(b => Array.isArray(b.beats) && b.beats.length === BEATS &&
-        b.beats.every(t => SUBS[t.div] && t.pa.length === t.div && t.tun.length === t.div));
-      if (!ok) throw 0;
-      state = fixState(data); save(); render();
+      const next = cleanExercise(JSON.parse(await inp.files[0].text()));
+      stopMetro(); state = next; save(); render();
     } catch (e) { alert("Ese archivo no tiene el formato esperado."); }
   };
   inp.click();
@@ -443,7 +620,7 @@ const setBpm = v => { bpmEl.value = Math.min(240, Math.max(30, v)); try { localS
 
 // Volumen de cada instrumento (0 a 1 en el control; la ganancia real es el cuadrado, que se siente más parejo).
 const VOL_KEY = "bateria-volumen";
-const vol = { pa: 1, tun: 1, ts: 1, click: 1 };
+const vol = Object.fromEntries([...ALL, "click"].map(k => [k, 1]));
 try { Object.assign(vol, JSON.parse(localStorage.getItem(VOL_KEY))); } catch (e) {}
 let buses = null;
 function bus(k) {
@@ -458,16 +635,6 @@ function bus(k) {
   }
   return buses[k];
 }
-document.querySelectorAll("[data-vol]").forEach(inp => {
-  inp.value = Math.round(vol[inp.dataset.vol] * 100);
-  inp.oninput = () => {
-    const id = inp.dataset.vol, v = inp.value / 100;
-    vol[id] = v;
-    if (buses) buses[id].gain.value = v * v;
-    try { localStorage.setItem(VOL_KEY, JSON.stringify(vol)); } catch (e) {}
-  };
-});
-
 function click(time, freq, gain) {
   const o = actx.createOscillator(), g = actx.createGain();
   o.frequency.value = freq;
@@ -518,7 +685,41 @@ function hat(t, v = 1) {
   n.connect(hp).connect(g).connect(bus("ts"));
   n.start(t); n.stop(t + 0.1);
 }
-const DRUM = { pa: (t, v) => snare(t, v), tun: (t, v) => kick(t, v), ts: (t, v) => hat(t, v) };
+// Tom: tono que cae + un golpe seco al empezar. f0/f1 = frecuencia inicial y final (más grave = tom 2).
+function tom(t, v, f0, f1, id) {
+  const o = actx.createOscillator(), g = env(t, 0.9 * v, 0.4);
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + 0.15);
+  o.connect(g).connect(bus(id));
+  o.start(t); o.stop(t + 0.45);
+  const n = noiseSrc(), bp = actx.createBiquadFilter(), ng = env(t, 0.25 * v, 0.04);
+  bp.type = "bandpass"; bp.frequency.value = f0 * 3;
+  n.connect(bp).connect(ng).connect(bus(id));
+  n.start(t); n.stop(t + 0.06);
+}
+// Ride: ruido agudo que se apaga lento + un "ping" metálico.
+function ride(t, v = 1) {
+  const n = noiseSrc(), hp = actx.createBiquadFilter(), g = env(t, 0.28 * v, 0.7);
+  hp.type = "highpass"; hp.frequency.value = 6000;
+  n.connect(hp).connect(g).connect(bus("ride"));
+  n.start(t); n.stop(t + 0.8);
+  const o = actx.createOscillator(), og = env(t, 0.12 * v, 0.5);
+  o.type = "triangle"; o.frequency.value = 3200;
+  o.connect(og).connect(bus("ride"));
+  o.start(t); o.stop(t + 0.55);
+}
+// Platillo (crash): ruido más grave que el hi-hat y de cola larga.
+function crash(t, v = 1) {
+  const n = noiseSrc(), hp = actx.createBiquadFilter(), g = env(t, 0.5 * v, 1.0);
+  hp.type = "highpass"; hp.frequency.value = 3500;
+  n.connect(hp).connect(g).connect(bus("crash"));
+  n.start(t); n.stop(t + 1.0);
+}
+const DRUM = {
+  pa: (t, v) => snare(t, v), tun: (t, v) => kick(t, v), ts: (t, v) => hat(t, v),
+  ride: (t, v) => ride(t, v), crash: (t, v) => crash(t, v),
+  tom1: (t, v) => tom(t, v, 190, 120, "tom1"), tom2: (t, v) => tom(t, v, 130, 80, "tom2"),
+};
 
 // Marca en pantalla el golpe que suena en el instante `at` (bi = bloque, null si no hay bloque).
 function mark(at, bi, beat, s) {
@@ -615,6 +816,8 @@ function showNotice(html, err) {
 const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
 render();
+scheduleShare();
+checkSharedLink();
 
 // App instalable y sin conexión (solo funciona servida por https o localhost, no desde un archivo).
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
