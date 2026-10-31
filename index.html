@@ -103,8 +103,10 @@
   .legend b.tom2, .row-label.tom2, .cell.tom2 { color: var(--tom2); }
   .legend b.crash, .row-label.crash, .cell.crash { color: var(--crash); }
   .legend { flex-wrap: wrap; align-items: center; row-gap: 8px; }
-  .legend .chip { display: inline-flex; align-items: center; gap: 4px; }
-  .legend .chip button { border: 0; background: none; color: var(--muted); font-size: 15px; line-height: 1; padding: 0 2px; }
+  .legend .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .legend .chip button { width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #55555a; font-size: 14px; line-height: 1; padding: 0; cursor: pointer; }
+  .legend .chip button:hover { background: #fef2f2; border-color: #ef4444; color: #b91c1c; }
+  .block-head select { font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 6px; cursor: pointer; }
   .legend select { font: inherit; font-size: 12px; border: 1px dashed var(--muted); background: #fff; border-radius: 6px; padding: 3px 6px; cursor: pointer; }
   .more.left > div { left: 0; right: auto; }
   .mixer > div label { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; color: #55555a; min-width: 230px; }
@@ -132,7 +134,8 @@
   @media print {
     @page { size: A4 landscape; margin: 12mm; }
     body { background: #fff; }
-    .toolbar, .hint, .block-head button, .ctl, #notice, .legend button, .legend select, .brush { display: none !important; }
+    .toolbar, .hint, .block-head button, .block-head select, .ctl, #notice, .legend button, .legend select, .brush { display: none !important; }
+    .legend .chip { border: 0; padding: 0; }
     .now { background: transparent !important; }
     .sheet { max-width: none; margin: 0; padding: 0; }
     .block { border-radius: 0; }
@@ -340,6 +343,11 @@ function render() {
       <div class="block-head">
         <input class="block-name" placeholder="Nombre del bloque">
         <button data-act="practice" class="practice">▶ Practicar</button>
+        <select class="clear" title="Borrar los golpes de un instrumento en este bloque">
+          <option value="">🧹 Limpiar…</option>
+          ${lanes.map(l => `<option value="${l.id}">${l.name}</option>`).join("")}
+          <option value="*">todo el bloque</option>
+        </select>
         <button data-act="dup">Duplicar</button>
         <button data-act="del">Borrar</button>
       </div>
@@ -357,9 +365,22 @@ function render() {
     const name = el.querySelector(".block-name");
     name.value = b.name;
     name.oninput = () => { b.name = name.value; save(); };
-    el.querySelectorAll("select").forEach(sel => {
+    el.querySelectorAll(".ctl select").forEach(sel => {
       sel.onchange = () => { regrid(b.beats[+sel.dataset.i], +sel.value); save(); render(); };
     });
+    // Limpiar: borra los golpes de un instrumento (o de todos los visibles) en este bloque. Pide confirmación.
+    const clear = el.querySelector("select.clear");
+    clear.onchange = () => {
+      const ids = clear.value === "*" ? lanes.map(l => l.id) : clear.value ? [clear.value] : [];
+      clear.value = "";
+      if (!ids.length) return;
+      const hits = b.beats.reduce((n, t) => n + ids.reduce((m, k) => m + t[k].filter(Boolean).length, 0), 0);
+      if (!hits) return showNotice("Ya está vacío: no hay golpes para borrar ahí.");
+      const what = ids.length > 1 ? "todos los instrumentos" : lane(ids[0]).name;
+      if (!confirm(`¿Borrar los golpes de ${what} en "${b.name || "este bloque"}"? (${hits} golpe${hits > 1 ? "s" : ""}). No se puede deshacer.`)) return;
+      b.beats.forEach(t => ids.forEach(k => { t[k] = t[k].map(() => 0); }));
+      save(); render();
+    };
     el.querySelectorAll(".cell").forEach(c => {
       c.onclick = () => {
         const bt = b.beats[+c.dataset.b], k = c.dataset.k, s = +c.dataset.s;
