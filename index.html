@@ -298,6 +298,11 @@
       <button id="pFail">👎 Me costó</button>
       <span id="pStreak" class="pstreak"></span>
     </div>
+    <div class="row">
+      <button id="pLog" class="primary">📝 Anotar esta práctica en el registro</button>
+      <span id="pTime" class="small"></span>
+    </div>
+    <p id="pLogMsg" class="small" aria-live="polite"></p>
     <div id="pSuggest" class="psuggest" hidden>¡4 seguidas! Ya podés subir un poco el tempo. <button id="pBump">Subir 5 BPM</button></div>
   </div>
 
@@ -1071,6 +1076,7 @@ const savePra = () => { try { localStorage.setItem(PRA_KEY, JSON.stringify(cfg))
 
 let pTimer = null, pRaf = null, pNext = 0, pBeat = 0, pEvents = [], pRun = 0;
 let pStroke = 0, pPlan = null, pCountIn = true, lastStep = -2;
+let pT0 = null, pSecs = 0;          // tiempo practicado desde la última vez que se anotó
 let streak = 0;
 
 // Secuencia de golpes por pulso: las elegidas de menor a mayor; con "ida y vuelta" vuelve a bajar.
@@ -1154,6 +1160,7 @@ function praSchedule() {
 function praApply(ev) {
   if (ev.type === "end") return stopPractice();
   if (ev.type === "bar") {
+    drawTime();
     drawBoard(ev.plan.divs, ev.plan.hands);
     $("pSilence").hidden = !ev.muted;
     $("pBoard").style.visibility = ev.muted ? "hidden" : "visible";   // en el silencio no se ve el pulso
@@ -1194,6 +1201,7 @@ function startPractice() {
   actx.resume();
   pBeat = 0; pEvents = []; pRun++;
   pStroke = 0; pPlan = null; lastStep = -2; pCountIn = cfg.countIn;
+  pT0 = performance.now();
   pNext = actx.currentTime + 0.1;
   pTimer = setInterval(praSchedule, 25);
   pRaf = requestAnimationFrame(praFrame);
@@ -1204,10 +1212,55 @@ function stopPractice() {
   clearInterval(pTimer); pTimer = null;
   cancelAnimationFrame(pRaf); pRaf = null;
   pRun++; pEvents = [];
+  if (pT0 !== null) { pSecs += (performance.now() - pT0) / 1000; pT0 = null; }
   holdScreen(false);
   $("pBoard").style.visibility = "visible";
   drawIdle();
+  drawTime();
   updatePraUI();
+}
+
+// Tiempo practicado (lo que ya se acumuló más lo de la práctica en curso).
+const praSecs = () => pSecs + (pT0 !== null ? (performance.now() - pT0) / 1000 : 0);
+function drawTime() {
+  const m = Math.floor(praSecs() / 60);
+  $("pTime").textContent = `Tiempo practicado: ${m} min`;
+}
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// Resumen del ejercicio actual, para la columna "Ejercicio" del registro.
+function praDescribe() {
+  return `${praSeq().join("→")} golpes por pulso, ${unitText()}` +
+    (cfg.gap ? ` · silencio ${cfg.gapMute} de cada ${cfg.gapPlay + cfg.gapMute} compases` : "") +
+    (cfg.hands && cfg.sticking !== "DI" ? ` · manos ${cfg.sticking}` : "");
+}
+
+// Anota lo practicado en la fila de hoy del registro semanal.
+function logPractice() {
+  const msg = t => { $("pLogMsg").textContent = t; };
+  const secs = praSecs();
+  if (secs < 15) return msg("Todavía no hay nada para anotar: practicá un rato primero.");
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  let idx = -1;
+  if (reg.start) idx = Math.round((today - new Date(reg.start + "T12:00:00")) / 86400000);
+  if (idx < 0 || idx > 6) {                 // sin semana cargada, o hoy cae fuera de ella
+    const hadWeek = !!reg.start;
+    if (hadWeek && !confirm("Hoy queda fuera de la semana del registro. ¿Empezar una semana nueva? Se borra lo anotado hasta ahora (si lo querés conservar, imprimilo antes).")) return;
+    const monday = new Date(today); monday.setDate(monday.getDate() - ((today.getDay() + 6) % 7));
+    reg.start = ymd(monday); reg.rows = Array.from({ length: 7 }, emptyRow);
+    if (hadWeek) reg.goal = "";             // semana nueva: objetivo nuevo (si no había semana, se conserva el que ya escribió)
+    idx = Math.round((today - monday) / 86400000);
+  }
+  const r = reg.rows[idx], desc = praDescribe();
+  const mins = Math.max(1, Math.round(secs / 60));
+  r.min = String(Math.min(600, (parseInt(r.min, 10) || 0) + mins));
+  r.ex = !r.ex ? desc : r.ex.includes(desc) ? r.ex : (r.ex + " + " + desc);
+  r.ex = r.ex.slice(0, 120);
+  r.bpm = String(cfg.bpm);
+  r.run = String(Math.max(parseInt(r.run, 10) || 0, streak));
+  saveReg();
+  pSecs = 0; if (pT0 !== null) pT0 = performance.now();   // la práctica en curso sigue contando desde cero
+  drawTime();
+  msg(`📝 Anotado en el registro (${dayLabel(idx)}): ${mins} min · ${cfg.bpm} BPM · ${desc}.`);
 }
 
 // Progreso: 4 vueltas seguidas sin errores y se sugiere subir el tempo.
@@ -1281,7 +1334,8 @@ function initPractice() {
   $("pFail").onclick = () => { streak = 0; drawStreak(); };
   $("pBump").onclick = () => setPraBpm(cfg.bpm + 5);
   $("pStart").onclick = startPractice;
-  drawStreak(); drawIdle();
+  $("pLog").onclick = logPractice;
+  drawStreak(); drawIdle(); drawTime();
 }
 
 // ---------- Registro semanal ----------
