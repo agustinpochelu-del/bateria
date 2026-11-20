@@ -25,6 +25,7 @@
     --tom1: #7e22ce;
     --tom2: #be185d;
     --crash: #a16207;
+    --chancha: #475569;
     --now: #fde68a;
   }
   * { box-sizing: border-box; }
@@ -102,6 +103,7 @@
   .legend b.tom1, .row-label.tom1, .cell.tom1 { color: var(--tom1); }
   .legend b.tom2, .row-label.tom2, .cell.tom2 { color: var(--tom2); }
   .legend b.crash, .row-label.crash, .cell.crash { color: var(--crash); }
+  .legend b.chancha, .row-label.chancha, .cell.chancha { color: var(--chancha); }
   .legend { flex-wrap: wrap; align-items: center; row-gap: 8px; }
   .legend .chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
   .legend .chip button { width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: #55555a; font-size: 14px; line-height: 1; padding: 0; cursor: pointer; }
@@ -121,6 +123,11 @@
   .pcard { background: #fff; border: 1.5px solid var(--ink); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
   .pcard h3 { margin: 0 0 8px; font-size: 15px; }
   .pcfg { font-size: 18px; margin: 22px 0 10px; }
+  .pickbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; font-size: 14px; color: #55555a; }
+  .pickbar button { font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  .pickbar .small { margin: 0; }
+  .block-head .pick { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #55555a; cursor: pointer; white-space: nowrap; }
+  .block.unpicked { opacity: .55; }
   .pcard .row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 6px 0; }
   .pcard .row .small { margin: 0; }
   .pcard button, .pstage button, .psuggest button { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--line); background: #fff; border-radius: 8px; cursor: pointer; }
@@ -211,7 +218,8 @@
     .toolbar, .hint, .block-head button, .block-head select, .ctl, #notice, .legend button, .legend select, .brush { display: none !important; }
     .legend .chip { border: 0; padding: 0; }
     .now { background: transparent !important; }
-    .noprint { display: none !important; }
+    .noprint, .pickbar, .block-head .pick { display: none !important; }
+    .block.unpicked { opacity: 1; }
     .regtable { display: table; overflow: visible; }
     .regmeta input { border: 0; border-bottom: 1px solid #999; border-radius: 0; padding-left: 0; }
     .regtable td { height: 15mm; }
@@ -241,7 +249,7 @@
   <label class="opt only-sch"><input type="checkbox" id="perPage"> Un bloque por hoja</label>
   <span class="metro only-sch">
     <button id="mPlay" class="primary">▶ Metrónomo</button>
-    <button id="mAll" title="Toca todos los bloques en orden y vuelve a empezar">▶ Todos los bloques</button>
+    <button id="mAll" title="Toca los bloques que tengan tildado 'practicar', en orden, y vuelve a empezar">▶ Practicar los elegidos</button>
     <button id="mDown" title="Bajar 5 BPM">−</button>
     <input id="bpm" type="number" min="30" max="240" value="80"> <span class="opt">BPM</span>
     <button id="mUp" title="Subir 5 BPM">+</button>
@@ -423,6 +431,12 @@
     <label><input type="radio" name="brush" value="3"> fuerte <small>PA</small></label>
   </div>
   <div id="notice" hidden></div>
+  <div class="pickbar" id="pickbar">
+    <span>Bloques a practicar:</span>
+    <button id="pickAll">Todos</button>
+    <button id="pickNone">Ninguno</button>
+    <span id="pickCount" class="small"></span>
+  </div>
   <div id="blocks"></div>
   <p class="hint">Hacé clic en una casilla para prender o apagar el golpe. El número (el pulso) está sobre el golpe que cae justo en el pulso; las demás casillas son golpes entre un pulso y el siguiente. Cada pulso tiene su propio selector de cuántos golpes lleva. Si dos golpes caen en el mismo momento, prendé las dos filas. El ejercicio en pantalla se recuerda solo, pero para conservarlo con nombre usá <b>Guardar</b>: queda en <b>Mis ejercicios</b>, en este navegador. Para mandárselo a alguien (o pasarlo de la PC al celular) usá <b>Compartir</b>: genera un enlace que, al abrirlo, trae el ejercicio. Si preferís un archivo de copia, está <b>Exportar JSON</b> en <b>⋯ Más</b>. Arriba, en la leyenda, podés agregar o quitar instrumentos.</p>
 </div>
@@ -441,6 +455,7 @@ const LANES = [
   { id: "ride",  syl: "Ting", name: "ride" },
   { id: "tom1",  syl: "Tom",  name: "tom 1" },
   { id: "tom2",  syl: "Dom",  name: "tom 2" },
+  { id: "chancha", syl: "Chan", name: "chancha" },
   { id: "pa",    syl: "Pa",   name: "redoblante" },
   { id: "tun",   syl: "Tun",  name: "bombo" },
 ];
@@ -557,10 +572,11 @@ function render() {
   root.innerHTML = "";
   state.blocks.forEach((b, bi) => {
     const el = document.createElement("section");
-    el.className = "block";
+    el.className = "block" + (b.sel === false ? " unpicked" : "");
     el.innerHTML = `
       <div class="block-head">
         <input class="block-name" placeholder="Nombre del bloque">
+        <label class="pick" title="Incluir este bloque en 'Practicar los elegidos'"><input type="checkbox" data-act="pick"> practicar</label>
         <button data-act="practice" class="practice">▶ Practicar</button>
         <select class="clear" title="Borrar los golpes de un instrumento en este bloque">
           <option value="">🧹 Limpiar…</option>
@@ -611,6 +627,13 @@ function render() {
       };
     });
     el.querySelector('[data-act="practice"]').onclick = () => startMetro(bi);
+    const pick = el.querySelector('[data-act="pick"]');
+    pick.checked = b.sel !== false;
+    pick.onchange = () => {            // qué bloques entran en "Practicar los elegidos"
+      b.sel = pick.checked;
+      el.classList.toggle("unpicked", !b.sel);
+      save(); updateMetroUI();
+    };
     el.querySelector('[data-act="dup"]').onclick = () => { state.blocks.splice(bi + 1, 0, structuredClone(b)); save(); render(); };
     el.querySelector('[data-act="del"]').onclick = () => {
       if (confirm("¿Borrar este bloque?")) { state.blocks.splice(bi, 1); save(); render(); }
@@ -959,6 +982,7 @@ const DRUM = {
   pa: (t, v) => snare(t, v), tun: (t, v) => kick(t, v), ts: (t, v) => hat(t, v),
   ride: (t, v) => ride(t, v), crash: (t, v) => crash(t, v),
   tom1: (t, v) => tom(t, v, 190, 120, "tom1"), tom2: (t, v) => tom(t, v, 130, 80, "tom2"),
+  chancha: (t, v) => tom(t, v, 100, 55, "chancha"),     // grave, para el tom de piso
 };
 
 // Marca en pantalla el golpe que suena en el instante `at` (bi = bloque, null si no hay bloque).
@@ -980,8 +1004,11 @@ function schedule() {
   while (mNext < actx.currentTime + 0.12) {
     const beatDur = 60 / getBpm(), beat = mPos % BEATS, bar = Math.floor(mPos / BEATS);
     let bi = null;
-    if (mTarget === "all") bi = bar % state.blocks.length;
-    else if (typeof mTarget === "number") bi = mTarget;
+    if (mTarget === "all") {
+      const ids = pickedIdx();
+      if (!ids.length) { stopMetro(); return; }       // se destildaron todos
+      bi = ids[bar % ids.length];
+    } else if (typeof mTarget === "number") bi = mTarget;
     const blk = bi === null ? null : state.blocks[bi];
     if (bi !== null && !blk) { stopMetro(); return; }
     const div = blk ? blk.beats[beat].div : 2;
@@ -1000,10 +1027,17 @@ function schedule() {
   }
 }
 
+// Posiciones de los bloques tildados para practicar (si nunca se tocó, entran todos).
+const pickedIdx = () => state.blocks.map((b, i) => b.sel === false ? -1 : i).filter(i => i >= 0);
+$("pickAll").onclick = () => { state.blocks.forEach(b => { b.sel = true; }); save(); render(); };
+$("pickNone").onclick = () => { stopMetro(); state.blocks.forEach(b => { b.sel = false; }); save(); render(); };
+
 function updateMetroUI() {
   const on = !!mTimer;
   $("mPlay").textContent = on && mTarget === null ? "■ Parar" : "▶ Metrónomo";
-  $("mAll").textContent = on && mTarget === "all" ? "■ Parar" : "▶ Todos los bloques";
+  const n = pickedIdx().length;
+  $("mAll").textContent = on && mTarget === "all" ? "■ Parar" : `▶ Practicar los elegidos (${n})`;
+  $("pickCount").textContent = `${n} de ${state.blocks.length} elegido${n === 1 ? "" : "s"}`;
   document.querySelectorAll(".practice").forEach((b, i) => {
     b.textContent = on && mTarget === i ? "■ Parar" : "▶ Practicar";
   });
