@@ -273,18 +273,28 @@
     <h3>1 · Qué practicar</h3>
     <div class="row">
       <span class="small">Armados:</span>
-      <button data-preset="1,2,4">1 → 2 → 4</button>
-      <button data-preset="1,2,3,4">1 → 2 → 3 → 4</button>
-      <button data-preset="1,2,3,4,5,6">hasta 6</button>
-      <button data-preset="1,2,4,pyr">pirámide 1-2-4-2-1</button>
+      <button data-preset="1,2,4,u8">1 → 2 → 4</button>
+      <button data-preset="1,2,3,4,u8">1 → 2 → 3 → 4</button>
+      <button data-preset="1,2,3,4,5,6,u8">hasta 6</button>
+      <button data-preset="1,2,4,pyr,u8">pirámide 1-2-4-2-1</button>
+    </div>
+    <div class="row">
+      <span class="small">Entre un pulso y otro:</span>
+      <button data-preset="1,2,u1">1 y 2, uno y uno</button>
+      <button data-preset="1,2,u2">1 y 2, de a dos</button>
+      <button data-preset="2,4,u1">2 y 4, uno y uno</button>
+      <button data-preset="2,3,u1">2 y 3, uno y uno</button>
     </div>
     <div class="row">
       <span class="small">Golpes por pulso (tocá para sumar o quitar):</span>
       <span class="chips" id="pChips"></span>
     </div>
     <div class="row">
-      <label class="opt">Compases en cada cambio
-        <select data-cfg="bars" data-num><option>1</option><option>2</option><option>4</option><option>8</option></select></label>
+      <label class="opt">Cambiar cada
+        <select data-cfg="unit" data-num>
+          <option value="1">1 pulso</option><option value="2">2 pulsos</option><option value="4">1 compás</option>
+          <option value="8">2 compases</option><option value="16">4 compases</option><option value="32">8 compases</option>
+        </select></label>
       <label class="opt"><input type="checkbox" data-cfg="pyr"> ida y vuelta (sube y vuelve a bajar)</label>
       <label class="opt"><input type="checkbox" data-cfg="loop"> repetir sin parar</label>
       <label class="opt"><input type="checkbox" data-cfg="countIn"> empezar con 1 compás de clic</label>
@@ -976,13 +986,19 @@ checkSharedLink();
 // Motor propio (no toca el de los esquemas): programa el audio unos milisegundos adelantado
 // y dibuja el tablero con una cola de eventos sincronizada con el reloj de audio.
 const PRA_KEY = "bateria-practica-v1";
-const cfg = { subs: [1, 2, 4], pyr: false, bars: 2, loop: true, countIn: true, bpm: 65,
+const cfg = { subs: [1, 2, 4], pyr: false, unit: 8, loop: true, countIn: true, bpm: 65,
   click: true, guide: true, lane: "pa", anchor: false, hands: true, lead: "D",
   gap: false, gapPlay: 3, gapMute: 1 };
-try { Object.assign(cfg, JSON.parse(localStorage.getItem(PRA_KEY))); } catch (e) {}
+try {
+  const saved = JSON.parse(localStorage.getItem(PRA_KEY));
+  Object.assign(cfg, saved);
+  if (saved && saved.bars && !saved.unit) cfg.unit = saved.bars * 4;   // versión anterior: compases → pulsos
+  delete cfg.bars;
+} catch (e) {}
 const savePra = () => { try { localStorage.setItem(PRA_KEY, JSON.stringify(cfg)); } catch (e) {} };
 
-let pTimer = null, pRaf = null, pNext = 0, pBeat = 0, pEvents = [], pRun = 0, pCycleBars = 0;
+let pTimer = null, pRaf = null, pNext = 0, pBeat = 0, pEvents = [], pRun = 0;
+let pStroke = 0, pPlan = null, pCountIn = true, lastStep = -2;
 let streak = 0;
 
 // Secuencia de golpes por pulso: las elegidas de menor a mayor; con "ida y vuelta" vuelve a bajar.
@@ -991,47 +1007,73 @@ function praSeq() {
   if (!s.length) s.push(1);
   return cfg.pyr && s.length > 1 ? [...s, ...s.slice(0, -1).reverse()] : s;
 }
-// Mano que toca el golpe n del compás: se alterna sin parar, empezando por la elegida.
-const handOf = (beat, sub, div) => ((beat * div + sub) % 2 === 0) === (cfg.lead === "D") ? "D" : "I";
 const plural = n => `${n} ${n === 1 ? "golpe" : "golpes"} por pulso`;
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
+const lcm = (a, b) => a / gcd(a, b) * b;
+const unitText = () => cfg.unit < 4 ? `cada ${cfg.unit === 1 ? "pulso" : cfg.unit + " pulsos"}`
+  : `cada ${cfg.unit === 4 ? "compás" : cfg.unit / 4 + " compases"}`;
 
-function drawBoard(div) {
-  $("pBoard").innerHTML = [0, 1, 2, 3].map(b => `<div class="pb" data-b="${b}"><div class="pn">${b + 1}</div>
-    <div class="pd" style="--n:${div}">${Array.from({ length: div }, (_, s) =>
-      `<span class="dot ${s === 0 ? "first" : ""}" data-s="${s}"><i></i>${cfg.hands ? `<small>${handOf(b, s, div)}</small>` : ""}</span>`).join("")}</div></div>`).join("");
+// Una "vuelta" es lo que tarda la secuencia en volver a empezar, redondeado a compases enteros (mínimo 2).
+function roundBars() {
+  let rb = lcm(praSeq().length * cfg.unit, 4) / 4;
+  while (rb < 2) rb *= 2;
+  return rb;
+}
+// Cuántos golpes lleva el pulso número n (contando desde el primero del ejercicio).
+const divAt = (n, seq) => seq[Math.floor(n / cfg.unit) % seq.length];
+// Plan de un compás: golpes de cada uno de sus 4 pulsos y qué mano toca cada golpe.
+// Las manos se alternan sin parar a lo largo de todo el ejercicio, empezando por la elegida.
+function barPlan(bar, startStroke) {
+  const seq = praSeq();
+  const divs = [0, 1, 2, 3].map(i => divAt(bar * 4 + i, seq));
+  let n = startStroke;
+  const hands = divs.map(d => Array.from({ length: d }, () => ((n++ % 2 === 0) === (cfg.lead === "D")) ? "D" : "I"));
+  return { divs, hands, strokes: n - startStroke };
+}
+
+function drawBoard(divs, hands) {
+  $("pBoard").innerHTML = divs.map((d, b) => `<div class="pb" data-b="${b}"><div class="pn">${b + 1}</div>
+    <div class="pd" style="--n:${d}">${Array.from({ length: d }, (_, s) =>
+      `<span class="dot ${s === 0 ? "first" : ""}" data-s="${s}"><i></i>${cfg.hands && hands[b][s] ? `<small>${hands[b][s]}</small>` : ""}</span>`).join("")}</div></div>`).join("");
 }
 function drawSeq(active = -1) {
   $("pSeq").innerHTML = praSeq().map((n, i) => `<span class="${i === active ? "on" : ""}">${n}</span>`).join("");
 }
 function drawIdle() {
   $("pStep").textContent = "Listo para empezar";
-  $("pInfo").textContent = `Va a practicar: ${praSeq().join(" → ")} golpes por pulso, ${cfg.bars} compás${cfg.bars > 1 ? "es" : ""} en cada uno, a ${cfg.bpm} BPM.`;
+  $("pInfo").textContent = `Va a practicar ${praSeq().join(" → ")} golpes por pulso, cambiando ${unitText()}, a ${cfg.bpm} BPM.`;
   $("pSilence").hidden = true;
-  drawSeq(); drawBoard(praSeq()[0]);
+  const plan = barPlan(0, 0);
+  drawSeq(); drawBoard(plan.divs, plan.hands);
 }
 
 // Programa un pulso: el clic, la subdivisión y el ancla, y los eventos para la pantalla.
 function praSchedule() {
   while (pNext < actx.currentTime + 0.12) {
-    const beatDur = 60 / cfg.bpm, beat = pBeat % 4, bar = Math.floor(pBeat / 4) - (cfg.countIn ? 1 : 0);
-    const seq = praSeq(), countIn = bar < 0, cycleLen = seq.length * cfg.bars;
-    if (!cfg.loop && !countIn && bar >= cycleLen) {          // terminó la única vuelta
+    const beatDur = 60 / cfg.bpm, beat = pBeat % 4;
+    const countIn = pCountIn && pBeat < 4;
+    const beatIdx = pBeat - (pCountIn ? 4 : 0), bar = Math.floor(beatIdx / 4), rb = roundBars();
+    if (!cfg.loop && !countIn && bar >= rb) {                 // terminó la única vuelta
       pEvents.push({ type: "end", at: pNext });
       clearInterval(pTimer); pTimer = null;
       return;
     }
-    const stepIdx = countIn ? -1 : Math.floor(bar / cfg.bars) % seq.length;
-    const div = countIn ? 1 : seq[stepIdx];
     const muted = !countIn && cfg.gap && (bar % (cfg.gapPlay + cfg.gapMute)) >= cfg.gapPlay;
-    if (beat === 0) pEvents.push({ type: "bar", at: pNext, bar, stepIdx, div, muted, countIn, cycleLen });
+    if (beat === 0) {
+      pPlan = countIn ? { divs: [1, 1, 1, 1], hands: [[""], [""], [""], [""]], strokes: 0 } : barPlan(bar, pStroke);
+      pEvents.push({ type: "bar", at: pNext, bar, plan: pPlan, muted, countIn, rb });
+    }
+    const div = pPlan.divs[beat];
+    const stepIdx = countIn ? -1 : Math.floor(beatIdx / cfg.unit) % praSeq().length;
     for (let s = 0; s < div; s++) {
       const at = pNext + s * beatDur / div;
-      pEvents.push({ type: "hit", at, beat, sub: s, div, muted });
+      pEvents.push({ type: "hit", at, beat, sub: s, muted, stepIdx });
       if (muted) continue;
       if (s === 0 && cfg.click) click(at, beat === 0 ? 1400 : 1000, 0.5);
       if (s === 0 && cfg.anchor && !countIn) DRUM.tun(at, VEL[2]);
       if (cfg.guide && !countIn) DRUM[cfg.lane](at, VEL[2]);
     }
+    if (!countIn) pStroke += div;
     pNext += beatDur;
     pBeat++;
   }
@@ -1040,24 +1082,22 @@ function praSchedule() {
 function praApply(ev) {
   if (ev.type === "end") return stopPractice();
   if (ev.type === "bar") {
-    drawBoard(ev.div);
+    drawBoard(ev.plan.divs, ev.plan.hands);
     $("pSilence").hidden = !ev.muted;
     $("pBoard").style.visibility = ev.muted ? "hidden" : "visible";   // en el silencio no se ve el pulso
     if (ev.countIn) {
       $("pStep").textContent = "Preparate…";
       $("pInfo").textContent = "Un compás de clic para entrar.";
-      drawSeq();
+      drawSeq(); lastStep = -2;
     } else {
-      $("pStep").textContent = plural(ev.div);
-      const inStep = ev.bar % cfg.bars;
-      const vuelta = Math.floor(ev.bar / ev.cycleLen) + 1;
-      $("pInfo").textContent = `Compás ${inStep + 1} de ${cfg.bars} · vuelta ${vuelta}`;
-      drawSeq(ev.stepIdx);
-      if (ev.bar > 0 && ev.bar % ev.cycleLen === 0)
-        $("pInfo").textContent += ` · ¡vuelta completa! Marcá cómo te fue ↓`;
+      const d = ev.plan.divs;
+      $("pStep").textContent = d.every(x => x === d[0]) ? plural(d[0]) : "Golpes por pulso: " + d.join(" · ");
+      $("pInfo").textContent = `Compás ${ev.bar + 1} · vuelta ${Math.floor(ev.bar / ev.rb) + 1}` +
+        (ev.bar > 0 && ev.bar % ev.rb === 0 ? " · ¡vuelta completa! Marcá cómo te fue ↓" : "");
     }
     return;
   }
+  if (ev.sub === 0 && ev.stepIdx !== lastStep) { lastStep = ev.stepIdx; drawSeq(ev.stepIdx); }
   if (ev.muted) return;
   document.querySelectorAll("#pBoard .now").forEach(e => e.classList.remove("now"));
   document.querySelectorAll("#pBoard .pb").forEach(e => e.classList.toggle("on", +e.dataset.b === ev.beat));
@@ -1065,8 +1105,9 @@ function praApply(ev) {
   if (dot) dot.classList.add("now");
 }
 function praFrame() {
-  const now = actx.currentTime;
+  const run = pRun, now = actx.currentTime;
   while (pEvents.length && pEvents[0].at <= now) praApply(pEvents.shift());
+  if (run !== pRun) return;          // un evento (el fin de la vuelta) detuvo la práctica: no volver a armar la animación
   pRaf = requestAnimationFrame(praFrame);
 }
 
@@ -1080,6 +1121,7 @@ function startPractice() {
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
   actx.resume();
   pBeat = 0; pEvents = []; pRun++;
+  pStroke = 0; pPlan = null; lastStep = -2; pCountIn = cfg.countIn;
   pNext = actx.currentTime + 0.1;
   pTimer = setInterval(praSchedule, 25);
   pRaf = requestAnimationFrame(praFrame);
@@ -1089,7 +1131,7 @@ function startPractice() {
 function stopPractice() {
   clearInterval(pTimer); pTimer = null;
   cancelAnimationFrame(pRaf); pRaf = null;
-  pEvents = [];
+  pRun++; pEvents = [];
   holdScreen(false);
   $("pBoard").style.visibility = "visible";
   drawIdle();
@@ -1134,8 +1176,11 @@ function initPractice() {
   document.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => {
     const parts = b.dataset.preset.split(",");
     cfg.pyr = parts.includes("pyr");
-    cfg.subs = parts.filter(p => p !== "pyr").map(Number);
+    cfg.subs = parts.filter(p => /^\d+$/.test(p)).map(Number);
+    const u = parts.find(p => /^u\d+$/.test(p));
+    if (u) cfg.unit = +u.slice(1);
     document.querySelector('[data-cfg="pyr"]').checked = cfg.pyr;
+    document.querySelector('[data-cfg="unit"]').value = cfg.unit;
     savePra(); paintChips(); if (!pTimer) drawIdle();
   });
   // tempo
