@@ -145,6 +145,10 @@
   .pseq { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
   .pseq span { padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; font-weight: 700; color: var(--muted); }
   .pseq span.on { background: var(--now); border-color: #d4a017; color: var(--ink); }
+  .pwarn { min-height: 2.8em; display: flex; align-items: center; margin: 6px 0; padding: 0 12px; border: 2px solid transparent; border-radius: 8px; font: 700 clamp(15px, 3.8vw, 22px) system-ui; }
+  .pwarn.soon { background: #fff7e0; border-color: #f59e0b; }
+  .pwarn.now { background: #dcfce7; border-color: #16a34a; }
+  .pseq span.next { border: 1px dashed #f59e0b; color: var(--ink); }
   .psilence { background: #eef2ff; border: 1px solid #6366f1; border-radius: 8px; padding: 8px 12px; margin: 8px 0; font-weight: 600; }
   .pboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
   .pb { border: 1.5px solid var(--line); border-radius: 10px; padding: 6px 4px 8px; text-align: center; }
@@ -157,6 +161,32 @@
   .dot.now i { background: var(--tun); }
   .dot.now.first i { background: var(--pa); }
   .dot.now small { color: var(--ink); }
+  /* pantalla completa de la práctica (celular) */
+  body.pfull { overflow: hidden; }
+  .pstage.full { position: fixed; inset: 0; z-index: 100; margin: 0; border: 0; border-radius: 0; overflow: auto;
+    display: flex; flex-direction: column; gap: 8px;
+    padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+  .pstage.full .pbar { display: contents; }
+  .pstage.full .pstep { order: 0; font-size: clamp(26px, 8vw, 44px); text-align: center; }
+  .pstage.full .pseq { order: 1; justify-content: center; }
+  .pstage.full .pseq span { font-size: clamp(18px, 5vw, 28px); padding: 4px 16px; }
+  .pstage.full .pwarn { order: 2; font-size: clamp(20px, 6vw, 34px); justify-content: center; text-align: center; min-height: 3.2em; }
+  .pstage.full #pInfo { order: 3; text-align: center; font-size: 15px; }
+  .pstage.full .psilence { order: 4; font-size: 20px; text-align: center; }
+  .pstage.full .pboard { order: 5; flex: 1; min-height: 0; margin: 0; }
+  .pstage.full .pb { display: flex; flex-direction: column; justify-content: center; }
+  .pstage.full .pn { font-size: clamp(36px, 12vw, 72px); }
+  .pstage.full .dot i { max-width: 72px; }
+  .pstage.full .dot small { font-size: clamp(14px, 4.5vw, 26px); }
+  .pstage.full #pStart { order: 6; font-size: 20px; padding: 16px; width: 100%; }
+  /* celular en vertical: los 4 pulsos como 4 filas (número a la izquierda, golpes a lo ancho), así cada golpe se ve grande */
+  @media (orientation: portrait) {
+    .pstage.full .pboard { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); gap: 8px; }
+    .pstage.full .pb { flex-direction: row; align-items: center; gap: 10px; padding: 4px 12px; }
+    .pstage.full .pn { flex: none; width: 1.1em; text-align: center; }
+    .pstage.full .pd { flex: 1; margin: 0; gap: 6px; }
+    .pstage.full .dot i { width: 86%; max-width: 76px; }
+  }
   .pcard .row.stkrow { flex-wrap: nowrap; align-items: flex-start; }
   .stkbtns { display: inline-flex; gap: 6px; flex: none; }   /* fijos a la izquierda: no se mueven al agregar o quitar golpes */
   .sticks { display: inline-flex; flex-wrap: wrap; gap: 5px; flex: 1; min-width: 0; }
@@ -289,12 +319,13 @@
   <h1 class="sheet-title">Práctica de pulso</h1>
   <p class="small">Para sostener el pulso mientras cambia cuántos golpes tocás por pulso (1, 2, 3, 4…). Vos tocás en tu batería; la app marca el pulso y, si querés, también la subdivisión.</p>
 
-  <div class="pstage">
+  <div class="pstage" id="pStage">
     <div class="pbar">
       <button id="pStart" class="primary">▶ Empezar</button>
       <span id="pStep" class="pstep">Listo para empezar</span>
     </div>
     <div class="pseq" id="pSeq"></div>
+    <div id="pWarn" class="pwarn" aria-live="polite"></div>
     <div id="pInfo" class="small"></div>
     <div id="pSilence" class="psilence" hidden>🤫 Silencio. Seguí el pulso en tu cabeza.</div>
     <div id="pBoard" class="pboard"></div>
@@ -344,6 +375,8 @@
           <option value="8">2 compases</option><option value="16">4 compases</option><option value="32">8 compases</option>
         </select></label>
       <label class="opt"><input type="checkbox" data-cfg="pyr"> ida y vuelta (sube y vuelve a bajar)</label>
+      <label class="opt"><input type="checkbox" data-cfg="warn"> avisar el cambio con
+        <select data-cfg="warnBeats" data-num><option>1</option><option>2</option><option>3</option><option>4</option></select> pulso(s) de anticipación <span class="small">(si el cambio es cada compás o más)</span></label>
       <label class="opt"><input type="checkbox" data-cfg="loop"> repetir sin parar</label>
       <label class="opt"><input type="checkbox" data-cfg="countIn"> empezar con 1 compás de clic</label>
     </div>
@@ -358,6 +391,7 @@
         <button id="pUp" title="Subir 5 BPM">+</button>
       </span>
       <label class="opt"><input type="checkbox" data-cfg="click"> clic en cada pulso</label>
+      <label class="opt"><input type="checkbox" data-cfg="full"> pantalla completa al empezar</label>
     </div>
     <div class="row">
       <label class="opt"><input type="checkbox" data-cfg="guide"> la subdivisión, sonando con</label>
@@ -1100,7 +1134,8 @@ checkSharedLink();
 const PRA_KEY = "bateria-practica-v1";
 const cfg = { subs: [1, 2, 4], pyr: false, unit: 8, loop: true, countIn: true, bpm: 65,
   click: true, guide: true, lane: "pa", anchor: false, hands: true, sticking: "DI",
-  gap: false, gapPlay: 3, gapMute: 1 };
+  gap: false, gapPlay: 3, gapMute: 1, warn: true, warnBeats: 2,
+  full: matchMedia("(max-width: 700px)").matches };   // pantalla completa al empezar: sí en el celular, no en la PC
 try {
   const saved = JSON.parse(localStorage.getItem(PRA_KEY));
   Object.assign(cfg, saved);
@@ -1113,7 +1148,7 @@ if (!/^[DI]{1,16}$/.test(cfg.sticking)) cfg.sticking = "DI";
 const savePra = () => { try { localStorage.setItem(PRA_KEY, JSON.stringify(cfg)); } catch (e) {} };
 
 let pTimer = null, pRaf = null, pNext = 0, pBeat = 0, pEvents = [], pRun = 0;
-let pStroke = 0, pPlan = null, pCountIn = true, lastStep = -2;
+let pStroke = 0, pPlan = null, pCountIn = true, lastStep = -2, lastNext = -2;
 let pT0 = null, pSecs = 0;          // tiempo practicado desde la última vez que se anotó
 let streak = 0;
 
@@ -1152,8 +1187,21 @@ function drawBoard(divs, hands) {
     <div class="pd" style="--n:${d}">${Array.from({ length: d }, (_, s) =>
       `<span class="dot ${s === 0 ? "first" : ""}" data-s="${s}"><i></i>${cfg.hands && hands[b][s] ? `<small class="h${hands[b][s]}">${hands[b][s]}</small>` : ""}</span>`).join("")}</div></div>`).join("");
 }
-function drawSeq(active = -1) {
-  $("pSeq").innerHTML = praSeq().map((n, i) => `<span class="${i === active ? "on" : ""}">${n}</span>`).join("");
+// active = paso en curso; next = paso que viene (se marca con borde punteado cuando se acerca el cambio)
+function drawSeq(active = -1, next = -2) {
+  $("pSeq").innerHTML = praSeq().map((n, i) =>
+    `<span class="${i === active ? "on" : i === next ? "next" : ""}">${n}</span>`).join("");
+}
+// Aviso del cambio: unos pulsos antes ("Se viene…") y en el pulso del cambio ("¡Ahora!").
+// El espacio está siempre reservado para que no se corra el resto de la pantalla.
+function showWarn(ev) {
+  const el = $("pWarn");
+  if (ev.muted) { el.className = "pwarn"; el.textContent = ""; return; }
+  if (ev.isNow) { el.className = "pwarn now"; el.textContent = `¡Ahora! ${plural(ev.nowDiv)}`; }
+  else if (ev.warn) {
+    el.className = "pwarn soon";
+    el.textContent = `Se viene: ${plural(ev.warn.div)} · ${ev.warn.k === 1 ? "en el próximo pulso" : "en " + ev.warn.k + " pulsos"}`;
+  } else { el.className = "pwarn"; el.textContent = ""; }
 }
 function drawIdle() {
   $("pStep").textContent = "Listo para empezar";
@@ -1180,10 +1228,27 @@ function praSchedule() {
       pEvents.push({ type: "bar", at: pNext, bar, plan: pPlan, muted, countIn, rb });
     }
     const div = pPlan.divs[beat];
-    const stepIdx = countIn ? -1 : Math.floor(beatIdx / cfg.unit) % praSeq().length;
+    const seq = praSeq();
+    const stepIdx = countIn ? -1 : Math.floor(beatIdx / cfg.unit) % seq.length;
+    // ¿Cambia la cantidad de golpes en los próximos pulsos? (en la cuenta de entrada, "el cambio" es el primer pulso)
+    let warn = null;
+    const announce = cfg.warn && cfg.unit >= 4;       // con cambios de pulso en pulso el aviso sería puro ruido
+    if (announce && !muted) {
+      for (let k = 1; k <= cfg.warnBeats; k++) {
+        const n = beatIdx + k;
+        if (n < 0) continue;
+        if (!cfg.loop && Math.floor(n / 4) >= rb) break;                     // después de la última vuelta no hay cambio
+        if (countIn || divAt(n, seq) !== divAt(beatIdx, seq)) {
+          warn = { k, div: divAt(n, seq), step: Math.floor(n / cfg.unit) % seq.length };
+          break;
+        }
+      }
+    }
+    // ¿Este pulso es justo el del cambio?
+    const isNow = announce && !countIn && divAt(beatIdx, seq) !== (beatIdx > 0 ? divAt(beatIdx - 1, seq) : null);
     for (let s = 0; s < div; s++) {
       const at = pNext + s * beatDur / div;
-      pEvents.push({ type: "hit", at, beat, sub: s, muted, stepIdx });
+      pEvents.push({ type: "hit", at, beat, sub: s, muted, stepIdx, warn, isNow, nowDiv: div });
       if (muted) continue;
       if (s === 0 && cfg.click) click(at, beat === 0 ? 1400 : 1000, 0.5);
       if (s === 0 && cfg.anchor && !countIn) DRUM.tun(at, VEL[2]);
@@ -1205,7 +1270,7 @@ function praApply(ev) {
     if (ev.countIn) {
       $("pStep").textContent = "Preparate…";
       $("pInfo").textContent = "Un compás de clic para entrar.";
-      drawSeq(); lastStep = -2;
+      drawSeq(); lastStep = -2; lastNext = -2;
     } else {
       const d = ev.plan.divs;
       $("pStep").textContent = d.every(x => x === d[0]) ? plural(d[0]) : "Golpes por pulso: " + d.join(" · ");
@@ -1214,7 +1279,11 @@ function praApply(ev) {
     }
     return;
   }
-  if (ev.sub === 0 && ev.stepIdx !== lastStep) { lastStep = ev.stepIdx; drawSeq(ev.stepIdx); }
+  if (ev.sub === 0) {
+    const nextStep = ev.warn && !ev.muted ? ev.warn.step : -2;
+    if (ev.stepIdx !== lastStep || nextStep !== lastNext) { lastStep = ev.stepIdx; lastNext = nextStep; drawSeq(ev.stepIdx, nextStep); }
+    showWarn(ev);
+  }
   if (ev.muted) return;
   document.querySelectorAll("#pBoard .now").forEach(e => e.classList.remove("now"));
   document.querySelectorAll("#pBoard .pb").forEach(e => e.classList.toggle("on", +e.dataset.b === ev.beat));
@@ -1238,12 +1307,13 @@ function startPractice() {
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
   actx.resume();
   pBeat = 0; pEvents = []; pRun++;
-  pStroke = 0; pPlan = null; lastStep = -2; pCountIn = cfg.countIn;
+  pStroke = 0; pPlan = null; lastStep = -2; lastNext = -2; pCountIn = cfg.countIn;
   pT0 = performance.now();
   pNext = actx.currentTime + 0.1;
   pTimer = setInterval(praSchedule, 25);
   pRaf = requestAnimationFrame(praFrame);
   holdScreen(true);
+  enterFull();
   updatePraUI();
 }
 function stopPractice() {
@@ -1252,10 +1322,27 @@ function stopPractice() {
   pRun++; pEvents = [];
   if (pT0 !== null) { pSecs += (performance.now() - pT0) / 1000; pT0 = null; }
   holdScreen(false);
+  exitFull();
   $("pBoard").style.visibility = "visible";
   drawIdle();
   drawTime();
   updatePraUI();
+}
+
+// Pantalla completa de la práctica: el tablero ocupa todo el celular y el botón de parar queda abajo.
+// Tapa la página con una capa propia (sirve en todos los celulares) y, si el navegador lo permite, también
+// oculta sus barras con la pantalla completa del sistema. En iPhone esa parte no existe: ahí ayuda instalar la app.
+function enterFull() {
+  if (!cfg.full) return;
+  $("pStage").classList.add("full");
+  document.body.classList.add("pfull");
+  const el = document.documentElement;
+  if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+}
+function exitFull() {
+  $("pStage").classList.remove("full");
+  document.body.classList.remove("pfull");
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
 
 // Tiempo practicado (lo que ya se acumuló más lo de la práctica en curso).

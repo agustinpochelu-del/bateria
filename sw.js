@@ -1,6 +1,6 @@
 // Service worker: deja la app funcionando sin conexión.
 // Subí el número de VERSION cuando cambies archivos, para que los celulares descarguen la versión nueva.
-const VERSION = "v10";
+const VERSION = "v11";
 const CACHE = "bateria-" + VERSION;
 const FILES = [
   "./",
