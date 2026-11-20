@@ -150,7 +150,9 @@
   .dot.now i { background: var(--tun); }
   .dot.now.first i { background: var(--pa); }
   .dot.now small { color: var(--ink); }
-  .sticks { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+  .pcard .row.stkrow { flex-wrap: nowrap; align-items: flex-start; }
+  .stkbtns { display: inline-flex; gap: 6px; flex: none; }   /* fijos a la izquierda: no se mueven al agregar o quitar golpes */
+  .sticks { display: inline-flex; flex-wrap: wrap; gap: 5px; flex: 1; min-width: 0; }
   .sticks button { min-width: 36px; font-weight: 800; }
   .sticks button.D, .dot small.hD { color: var(--tun); }
   .sticks button.I, .dot small.hI { color: var(--pa); }
@@ -360,10 +362,12 @@
     <div class="row">
       <span class="small">Orden de las manos, golpe tras golpe (tocá una para cambiarla). Se repite sin parar:</span>
     </div>
-    <div class="row">
+    <div class="row stkrow">
+      <span class="stkbtns">
+        <button id="stkDel" title="Quitar el último golpe">−</button>
+        <button id="stkAdd" title="Agregar un golpe">＋</button>
+      </span>
       <span class="sticks" id="pSticks"></span>
-      <button id="stkDel" title="Quitar el último golpe">−</button>
-      <button id="stkAdd" title="Agregar un golpe">＋</button>
     </div>
     <div class="row">
       <span class="small">Armados:</span>
