@@ -109,6 +109,50 @@
   .block-head select { font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 6px; cursor: pointer; }
   .legend select { font: inherit; font-size: 12px; border: 1px dashed var(--muted); background: #fff; border-radius: 6px; padding: 3px 6px; cursor: pointer; }
   .more.left > div { left: 0; right: auto; }
+
+  /* pestañas */
+  .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .toolbar .tabs button { border: 0; border-radius: 0; background: #fff; }
+  .toolbar .tabs button.on { background: var(--ink); color: #fff; }
+  body.v-practica .only-sch { display: none !important; }
+
+  /* práctica de pulso */
+  .small { font-size: 13px; color: #55555a; margin: 4px 0 10px; }
+  .pcard { background: #fff; border: 1.5px solid var(--ink); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  .pcard h3 { margin: 0 0 8px; font-size: 15px; }
+  .pcfg { font-size: 18px; margin: 22px 0 10px; }
+  .pcard .row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 6px 0; }
+  .pcard .row .small { margin: 0; }
+  .pcard button, .pstage button, .psuggest button { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--line); background: #fff; border-radius: 8px; cursor: pointer; }
+  .pcard select, .pcard input[type=number] { font: inherit; font-size: 14px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .pcard .opt { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #55555a; }
+  .tempo { display: inline-flex; align-items: center; gap: 6px; }
+  .tempo input { width: 64px; text-align: center; }
+  .chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { min-width: 38px; font-weight: 700; }
+  .chips button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .pstage { background: #fff; border: 1.5px solid var(--ink); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .pbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .pstage button.primary { background: var(--ink); color: #fff; border-color: var(--ink); font-size: 16px; padding: 10px 18px; }
+  .pstep { font: 700 clamp(18px, 4vw, 28px) system-ui; }
+  .pseq { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .pseq span { padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; font-weight: 700; color: var(--muted); }
+  .pseq span.on { background: var(--now); border-color: #d4a017; color: var(--ink); }
+  .psilence { background: #eef2ff; border: 1px solid #6366f1; border-radius: 8px; padding: 8px 12px; margin: 8px 0; font-weight: 600; }
+  .pboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .pb { border: 1.5px solid var(--line); border-radius: 10px; padding: 6px 4px 8px; text-align: center; }
+  .pb.on { border-color: var(--ink); }
+  .pn { font: 700 clamp(20px, 5vw, 34px) system-ui; }
+  .pd { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 2px; margin-top: 4px; }
+  .dot { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .dot i { width: 78%; aspect-ratio: 1; border-radius: 50%; background: var(--line); max-width: 36px; }
+  .dot small { font-size: clamp(9px, 2.2vw, 13px); color: var(--muted); font-weight: 700; }
+  .dot.now i { background: var(--tun); }
+  .dot.now.first i { background: var(--pa); }
+  .dot.now small { color: var(--ink); }
+  .pstreak { font-weight: 700; }
+  .psuggest { background: #ecfdf5; border: 1px solid #10b981; border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-weight: 600; }
+  .psuggest button { margin-left: 8px; }
   .mixer > div label { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; color: #55555a; min-width: 230px; }
   .mixer input[type=range] { width: 120px; }
   .beat { grid-auto-flow: row; border-left: 2px solid var(--ink); }
@@ -149,14 +193,18 @@
 <body>
 
 <div class="toolbar">
-  <button class="primary" id="print">Imprimir</button>
-  <button id="newEx">＋ Nuevo ejercicio</button>
-  <button id="save">💾 Guardar</button>
-  <button id="openLib">📂 Mis ejercicios</button>
-  <button id="share">📤 Compartir</button>
-  <button id="add">+ Bloque</button>
-  <label class="opt"><input type="checkbox" id="perPage"> Un bloque por hoja</label>
-  <span class="metro">
+  <span class="tabs">
+    <button id="tabSch" class="on">🥁 Esquemas</button>
+    <button id="tabPra">🎯 Práctica de pulso</button>
+  </span>
+  <button class="primary only-sch" id="print">Imprimir</button>
+  <button class="only-sch" id="newEx">＋ Nuevo ejercicio</button>
+  <button class="only-sch" id="save">💾 Guardar</button>
+  <button class="only-sch" id="openLib">📂 Mis ejercicios</button>
+  <button class="only-sch" id="share">📤 Compartir</button>
+  <button class="only-sch" id="add">+ Bloque</button>
+  <label class="opt only-sch"><input type="checkbox" id="perPage"> Un bloque por hoja</label>
+  <span class="metro only-sch">
     <button id="mPlay" class="primary">▶ Metrónomo</button>
     <button id="mAll" title="Toca todos los bloques en orden y vuelve a empezar">▶ Todos los bloques</button>
     <button id="mDown" title="Bajar 5 BPM">−</button>
@@ -172,7 +220,7 @@
     <div id="mixer"></div>
   </details>
   <span class="spacer"></span>
-  <details class="more">
+  <details class="more only-sch">
     <summary>⋯ Más</summary>
     <div>
       <button id="export">Exportar JSON</button>
@@ -194,7 +242,90 @@
   <div class="lib-head"><button id="sharedOpen">Abrir</button><button id="sharedSave">Guardar en Mis ejercicios</button><span class="spacer"></span><button id="sharedIgnore">Ignorar</button></div>
 </dialog>
 
-<div class="sheet">
+<section class="sheet" id="practica" hidden>
+  <h1 class="sheet-title">Práctica de pulso</h1>
+  <p class="small">Para sostener el pulso mientras cambia cuántos golpes tocás por pulso (1, 2, 3, 4…). Vos tocás en tu batería; la app marca el pulso y, si querés, también la subdivisión.</p>
+
+  <div class="pstage">
+    <div class="pbar">
+      <button id="pStart" class="primary">▶ Empezar</button>
+      <span id="pStep" class="pstep">Listo para empezar</span>
+    </div>
+    <div class="pseq" id="pSeq"></div>
+    <div id="pInfo" class="small"></div>
+    <div id="pSilence" class="psilence" hidden>🤫 Silencio. Seguí el pulso en tu cabeza.</div>
+    <div id="pBoard" class="pboard"></div>
+  </div>
+
+  <div class="pcard">
+    <h3>Tu progreso</h3>
+    <p class="small">Regla de la rutina: no subas el tempo hasta que el ejercicio salga <b>4 veces seguidas</b> sin tensión ni errores de tiempo. Al terminar cada vuelta completa, marcá cómo te fue.</p>
+    <div class="row">
+      <button id="pOk">👍 Me salió bien</button>
+      <button id="pFail">👎 Me costó</button>
+      <span id="pStreak" class="pstreak"></span>
+    </div>
+    <div id="pSuggest" class="psuggest" hidden>¡4 seguidas! Ya podés subir un poco el tempo. <button id="pBump">Subir 5 BPM</button></div>
+  </div>
+
+  <h2 class="pcfg">Ajustes</h2>
+  <div class="pcard">
+    <h3>1 · Qué practicar</h3>
+    <div class="row">
+      <span class="small">Armados:</span>
+      <button data-preset="1,2,4">1 → 2 → 4</button>
+      <button data-preset="1,2,3,4">1 → 2 → 3 → 4</button>
+      <button data-preset="1,2,3,4,5,6">hasta 6</button>
+      <button data-preset="1,2,4,pyr">pirámide 1-2-4-2-1</button>
+    </div>
+    <div class="row">
+      <span class="small">Golpes por pulso (tocá para sumar o quitar):</span>
+      <span class="chips" id="pChips"></span>
+    </div>
+    <div class="row">
+      <label class="opt">Compases en cada cambio
+        <select data-cfg="bars" data-num><option>1</option><option>2</option><option>4</option><option>8</option></select></label>
+      <label class="opt"><input type="checkbox" data-cfg="pyr"> ida y vuelta (sube y vuelve a bajar)</label>
+      <label class="opt"><input type="checkbox" data-cfg="loop"> repetir sin parar</label>
+      <label class="opt"><input type="checkbox" data-cfg="countIn"> empezar con 1 compás de clic</label>
+    </div>
+  </div>
+
+  <div class="pcard">
+    <h3>2 · Qué querés escuchar</h3>
+    <div class="row">
+      <span class="tempo">
+        <button id="pDown" title="Bajar 5 BPM">−</button>
+        <input id="pBpm" type="number" min="30" max="240"> <span class="small">BPM</span>
+        <button id="pUp" title="Subir 5 BPM">+</button>
+      </span>
+      <label class="opt"><input type="checkbox" data-cfg="click"> clic en cada pulso</label>
+    </div>
+    <div class="row">
+      <label class="opt"><input type="checkbox" data-cfg="guide"> la subdivisión, sonando con</label>
+      <select data-cfg="lane" id="pLane"></select>
+      <label class="opt"><input type="checkbox" data-cfg="anchor"> bombo en cada pulso (ancla)</label>
+    </div>
+    <div class="row">
+      <label class="opt"><input type="checkbox" data-cfg="hands"> mostrar manos (D = derecha, I = izquierda), empezando con</label>
+      <select data-cfg="lead"><option value="D">derecha</option><option value="I">izquierda</option></select>
+    </div>
+  </div>
+
+  <div class="pcard">
+    <h3>3 · Probar el pulso interno (opcional)</h3>
+    <div class="row">
+      <label class="opt"><input type="checkbox" data-cfg="gap"> hacer silencio:</label>
+      <label class="opt">suena
+        <select data-cfg="gapPlay" data-num><option>1</option><option>2</option><option>3</option><option>4</option><option>6</option><option>8</option></select> compás(es)</label>
+      <label class="opt">y se apaga
+        <select data-cfg="gapMute" data-num><option>1</option><option>2</option><option>3</option><option>4</option></select> compás(es)</label>
+    </div>
+    <p class="small">En el silencio se apaga todo (clic, subdivisión y ancla) y los puntitos dejan de moverse. Seguí tocando y contando; cuando vuelva el sonido, fijate si caés justo en el 1.</p>
+  </div>
+</section>
+
+<div class="sheet" id="esquemas">
   <input class="sheet-title" id="title" placeholder="Título del ejercicio">
   <div class="legend" id="legend"></div>
   <div class="brush" id="brush">
@@ -799,7 +930,7 @@ async function holdScreen(on) {
   } catch (e) { wakeLock = null; }
 }
 // el bloqueo se suelta solo al cambiar de app: lo pedimos de nuevo al volver
-document.addEventListener("visibilitychange", () => { if (mTimer && document.visibilityState === "visible") holdScreen(true); });
+document.addEventListener("visibilitychange", () => { if ((mTimer || pTimer) && document.visibilityState === "visible") holdScreen(true); });
 
 function stopMetro() {
   holdScreen(false);
@@ -811,6 +942,7 @@ function stopMetro() {
 
 // target: null = solo clic, número = ese bloque en bucle, "all" = todos los bloques en orden.
 function startMetro(target) {
+  if (pTimer || pRaf) stopPractice();
   if (mTimer && mTarget === target) return stopMetro();
   if (mTimer) stopMetro();
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
@@ -839,6 +971,197 @@ const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", 
 render();
 scheduleShare();
 checkSharedLink();
+
+// ---------- Práctica de pulso ----------
+// Motor propio (no toca el de los esquemas): programa el audio unos milisegundos adelantado
+// y dibuja el tablero con una cola de eventos sincronizada con el reloj de audio.
+const PRA_KEY = "bateria-practica-v1";
+const cfg = { subs: [1, 2, 4], pyr: false, bars: 2, loop: true, countIn: true, bpm: 65,
+  click: true, guide: true, lane: "pa", anchor: false, hands: true, lead: "D",
+  gap: false, gapPlay: 3, gapMute: 1 };
+try { Object.assign(cfg, JSON.parse(localStorage.getItem(PRA_KEY))); } catch (e) {}
+const savePra = () => { try { localStorage.setItem(PRA_KEY, JSON.stringify(cfg)); } catch (e) {} };
+
+let pTimer = null, pRaf = null, pNext = 0, pBeat = 0, pEvents = [], pRun = 0, pCycleBars = 0;
+let streak = 0;
+
+// Secuencia de golpes por pulso: las elegidas de menor a mayor; con "ida y vuelta" vuelve a bajar.
+function praSeq() {
+  const s = [...new Set(cfg.subs)].filter(n => n >= 1 && n <= 6).sort((a, b) => a - b);
+  if (!s.length) s.push(1);
+  return cfg.pyr && s.length > 1 ? [...s, ...s.slice(0, -1).reverse()] : s;
+}
+// Mano que toca el golpe n del compás: se alterna sin parar, empezando por la elegida.
+const handOf = (beat, sub, div) => ((beat * div + sub) % 2 === 0) === (cfg.lead === "D") ? "D" : "I";
+const plural = n => `${n} ${n === 1 ? "golpe" : "golpes"} por pulso`;
+
+function drawBoard(div) {
+  $("pBoard").innerHTML = [0, 1, 2, 3].map(b => `<div class="pb" data-b="${b}"><div class="pn">${b + 1}</div>
+    <div class="pd" style="--n:${div}">${Array.from({ length: div }, (_, s) =>
+      `<span class="dot ${s === 0 ? "first" : ""}" data-s="${s}"><i></i>${cfg.hands ? `<small>${handOf(b, s, div)}</small>` : ""}</span>`).join("")}</div></div>`).join("");
+}
+function drawSeq(active = -1) {
+  $("pSeq").innerHTML = praSeq().map((n, i) => `<span class="${i === active ? "on" : ""}">${n}</span>`).join("");
+}
+function drawIdle() {
+  $("pStep").textContent = "Listo para empezar";
+  $("pInfo").textContent = `Va a practicar: ${praSeq().join(" → ")} golpes por pulso, ${cfg.bars} compás${cfg.bars > 1 ? "es" : ""} en cada uno, a ${cfg.bpm} BPM.`;
+  $("pSilence").hidden = true;
+  drawSeq(); drawBoard(praSeq()[0]);
+}
+
+// Programa un pulso: el clic, la subdivisión y el ancla, y los eventos para la pantalla.
+function praSchedule() {
+  while (pNext < actx.currentTime + 0.12) {
+    const beatDur = 60 / cfg.bpm, beat = pBeat % 4, bar = Math.floor(pBeat / 4) - (cfg.countIn ? 1 : 0);
+    const seq = praSeq(), countIn = bar < 0, cycleLen = seq.length * cfg.bars;
+    if (!cfg.loop && !countIn && bar >= cycleLen) {          // terminó la única vuelta
+      pEvents.push({ type: "end", at: pNext });
+      clearInterval(pTimer); pTimer = null;
+      return;
+    }
+    const stepIdx = countIn ? -1 : Math.floor(bar / cfg.bars) % seq.length;
+    const div = countIn ? 1 : seq[stepIdx];
+    const muted = !countIn && cfg.gap && (bar % (cfg.gapPlay + cfg.gapMute)) >= cfg.gapPlay;
+    if (beat === 0) pEvents.push({ type: "bar", at: pNext, bar, stepIdx, div, muted, countIn, cycleLen });
+    for (let s = 0; s < div; s++) {
+      const at = pNext + s * beatDur / div;
+      pEvents.push({ type: "hit", at, beat, sub: s, div, muted });
+      if (muted) continue;
+      if (s === 0 && cfg.click) click(at, beat === 0 ? 1400 : 1000, 0.5);
+      if (s === 0 && cfg.anchor && !countIn) DRUM.tun(at, VEL[2]);
+      if (cfg.guide && !countIn) DRUM[cfg.lane](at, VEL[2]);
+    }
+    pNext += beatDur;
+    pBeat++;
+  }
+}
+
+function praApply(ev) {
+  if (ev.type === "end") return stopPractice();
+  if (ev.type === "bar") {
+    drawBoard(ev.div);
+    $("pSilence").hidden = !ev.muted;
+    $("pBoard").style.visibility = ev.muted ? "hidden" : "visible";   // en el silencio no se ve el pulso
+    if (ev.countIn) {
+      $("pStep").textContent = "Preparate…";
+      $("pInfo").textContent = "Un compás de clic para entrar.";
+      drawSeq();
+    } else {
+      $("pStep").textContent = plural(ev.div);
+      const inStep = ev.bar % cfg.bars;
+      const vuelta = Math.floor(ev.bar / ev.cycleLen) + 1;
+      $("pInfo").textContent = `Compás ${inStep + 1} de ${cfg.bars} · vuelta ${vuelta}`;
+      drawSeq(ev.stepIdx);
+      if (ev.bar > 0 && ev.bar % ev.cycleLen === 0)
+        $("pInfo").textContent += ` · ¡vuelta completa! Marcá cómo te fue ↓`;
+    }
+    return;
+  }
+  if (ev.muted) return;
+  document.querySelectorAll("#pBoard .now").forEach(e => e.classList.remove("now"));
+  document.querySelectorAll("#pBoard .pb").forEach(e => e.classList.toggle("on", +e.dataset.b === ev.beat));
+  const dot = document.querySelector(`#pBoard .pb[data-b="${ev.beat}"] .dot[data-s="${ev.sub}"]`);
+  if (dot) dot.classList.add("now");
+}
+function praFrame() {
+  const now = actx.currentTime;
+  while (pEvents.length && pEvents[0].at <= now) praApply(pEvents.shift());
+  pRaf = requestAnimationFrame(praFrame);
+}
+
+function updatePraUI() {
+  const on = !!pTimer || !!pRaf;
+  $("pStart").textContent = on ? "■ Parar" : "▶ Empezar";
+}
+function startPractice() {
+  if (pTimer || pRaf) return stopPractice();
+  stopMetro();
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  actx.resume();
+  pBeat = 0; pEvents = []; pRun++;
+  pNext = actx.currentTime + 0.1;
+  pTimer = setInterval(praSchedule, 25);
+  pRaf = requestAnimationFrame(praFrame);
+  holdScreen(true);
+  updatePraUI();
+}
+function stopPractice() {
+  clearInterval(pTimer); pTimer = null;
+  cancelAnimationFrame(pRaf); pRaf = null;
+  pEvents = [];
+  holdScreen(false);
+  $("pBoard").style.visibility = "visible";
+  drawIdle();
+  updatePraUI();
+}
+
+// Progreso: 4 vueltas seguidas sin errores y se sugiere subir el tempo.
+function drawStreak() {
+  $("pStreak").textContent = `Seguidas sin errores: ${streak} de 4`;
+  $("pSuggest").hidden = streak < 4;
+}
+function setPraBpm(v) {
+  cfg.bpm = Math.min(240, Math.max(30, Math.round(+v) || 65));
+  $("pBpm").value = cfg.bpm; savePra();
+  streak = 0; drawStreak();
+  if (!pTimer) drawIdle();
+}
+
+function initPractice() {
+  // controles simples enlazados a cfg
+  document.querySelectorAll("#practica [data-cfg]").forEach(el => {
+    const k = el.dataset.cfg;
+    if (el.type === "checkbox") el.checked = !!cfg[k]; else el.value = cfg[k];
+    el.onchange = () => {
+      cfg[k] = el.type === "checkbox" ? el.checked : el.dataset.num !== undefined ? +el.value : el.value;
+      savePra(); streak = 0; drawStreak(); if (!pTimer) drawIdle();
+    };
+  });
+  $("pLane").innerHTML = LANES.map(l => `<option value="${l.id}">${l.name}</option>`).join("");
+  $("pLane").value = cfg.lane;
+  // golpes por pulso elegibles
+  const chips = $("pChips");
+  chips.innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<button data-n="${n}">${n}</button>`).join("");
+  const paintChips = () => chips.querySelectorAll("button").forEach(b => b.classList.toggle("on", cfg.subs.includes(+b.dataset.n)));
+  chips.querySelectorAll("button").forEach(b => b.onclick = () => {
+    const n = +b.dataset.n;
+    if (cfg.subs.includes(n)) { if (cfg.subs.length > 1) cfg.subs = cfg.subs.filter(x => x !== n); }
+    else cfg.subs = [...cfg.subs, n];
+    savePra(); paintChips(); if (!pTimer) drawIdle();
+  });
+  paintChips();
+  document.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => {
+    const parts = b.dataset.preset.split(",");
+    cfg.pyr = parts.includes("pyr");
+    cfg.subs = parts.filter(p => p !== "pyr").map(Number);
+    document.querySelector('[data-cfg="pyr"]').checked = cfg.pyr;
+    savePra(); paintChips(); if (!pTimer) drawIdle();
+  });
+  // tempo
+  $("pBpm").value = cfg.bpm;
+  $("pDown").onclick = () => setPraBpm(cfg.bpm - 5);
+  $("pUp").onclick = () => setPraBpm(cfg.bpm + 5);
+  $("pBpm").onchange = () => setPraBpm($("pBpm").value);
+  // progreso
+  $("pOk").onclick = () => { streak++; drawStreak(); };
+  $("pFail").onclick = () => { streak = 0; drawStreak(); };
+  $("pBump").onclick = () => setPraBpm(cfg.bpm + 5);
+  $("pStart").onclick = startPractice;
+  drawStreak(); drawIdle();
+}
+
+// Pestañas
+function setView(v) {
+  stopMetro(); if (pTimer || pRaf) stopPractice();
+  const pra = v === "practica";
+  document.body.classList.toggle("v-practica", pra);
+  $("practica").hidden = !pra; $("esquemas").hidden = pra;
+  $("tabPra").classList.toggle("on", pra); $("tabSch").classList.toggle("on", !pra);
+}
+$("tabSch").onclick = () => setView("esquemas");
+$("tabPra").onclick = () => setView("practica");
+initPractice();
 
 // App instalable y sin conexión (solo funciona servida por https o localhost, no desde un archivo).
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
