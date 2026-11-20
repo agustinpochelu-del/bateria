@@ -150,6 +150,34 @@
   .dot.now i { background: var(--tun); }
   .dot.now.first i { background: var(--pa); }
   .dot.now small { color: var(--ink); }
+  .sticks { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+  .sticks button { min-width: 36px; font-weight: 800; }
+  .sticks button.D, .dot small.hD { color: var(--tun); }
+  .sticks button.I, .dot small.hI { color: var(--pa); }
+  .dot small { font-weight: 800; }
+  .dot.now small { color: var(--ink) !important; }
+
+  /* registro semanal */
+  .regmeta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 6px 0 12px; font-size: 14px; }
+  .regmeta label { display: flex; align-items: center; gap: 8px; color: #55555a; }
+  .regmeta .grow { flex: 1; min-width: 240px; }
+  .regmeta input { font: inherit; font-size: 14px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .regmeta .grow input { flex: 1; min-width: 0; }
+  .regtable { width: 100%; border-collapse: collapse; background: #fff; border: 1.5px solid var(--ink); font-size: 14px; }
+  .regtable th { background: #e8ebf2; font-size: 12px; text-align: left; padding: 8px 6px; border: 1px solid var(--line); }
+  .regtable td { border: 1px solid var(--line); padding: 0; height: 46px; vertical-align: middle; }
+  .regtable th:nth-child(1) { width: 118px; }
+  .regtable th:nth-child(2), .regtable th:nth-child(4) { width: 64px; }
+  .regtable th:nth-child(3) { width: 34%; }
+  .regtable th:nth-child(5) { width: 92px; }
+  .regtable th:nth-child(6) { width: 200px; }
+  .regtable th:nth-child(7) { width: 22%; }
+  .regtable td.rday { padding: 0 8px; font-weight: 700; white-space: nowrap; }
+  .regtable td input[type=text], .regtable td input[type=number] { width: 100%; height: 44px; border: 0; background: transparent; font: inherit; padding: 0 6px; }
+  .regtable td.sil { padding: 0 6px; white-space: nowrap; }
+  .regtable td.sil label { margin-right: 6px; font-size: 13px; cursor: pointer; }
+  .regtable tfoot td { padding: 8px; font-weight: 700; height: auto; background: #f6f7fa; white-space: nowrap; }
+  @media (max-width: 700px) { .regtable { display: block; overflow-x: auto; } }
   .pstreak { font-weight: 700; }
   .psuggest { background: #ecfdf5; border: 1px solid #10b981; border-radius: 8px; padding: 8px 12px; margin-top: 8px; font-weight: 600; }
   .psuggest button { margin-left: 8px; }
@@ -181,6 +209,10 @@
     .toolbar, .hint, .block-head button, .block-head select, .ctl, #notice, .legend button, .legend select, .brush { display: none !important; }
     .legend .chip { border: 0; padding: 0; }
     .now { background: transparent !important; }
+    .noprint { display: none !important; }
+    .regtable { display: table; overflow: visible; }
+    .regmeta input { border: 0; border-bottom: 1px solid #999; border-radius: 0; padding-left: 0; }
+    .regtable td { height: 15mm; }
     .sheet { max-width: none; margin: 0; padding: 0; }
     .block { border-radius: 0; }
     .cell:hover { background: transparent; }
@@ -196,6 +228,7 @@
   <span class="tabs">
     <button id="tabSch" class="on">🥁 Esquemas</button>
     <button id="tabPra">🎯 Práctica de pulso</button>
+    <button id="tabReg">📋 Registro semanal</button>
   </span>
   <button class="primary only-sch" id="print">Imprimir</button>
   <button class="only-sch" id="newEx">＋ Nuevo ejercicio</button>
@@ -317,8 +350,23 @@
       <label class="opt"><input type="checkbox" data-cfg="anchor"> bombo en cada pulso (ancla)</label>
     </div>
     <div class="row">
-      <label class="opt"><input type="checkbox" data-cfg="hands"> mostrar manos (D = derecha, I = izquierda), empezando con</label>
-      <select data-cfg="lead"><option value="D">derecha</option><option value="I">izquierda</option></select>
+      <label class="opt"><input type="checkbox" data-cfg="hands"> mostrar qué mano toca cada golpe (D = derecha, I = izquierda)</label>
+    </div>
+    <div class="row">
+      <span class="small">Orden de las manos, golpe tras golpe (tocá una para cambiarla). Se repite sin parar:</span>
+    </div>
+    <div class="row">
+      <span class="sticks" id="pSticks"></span>
+      <button id="stkDel" title="Quitar el último golpe">−</button>
+      <button id="stkAdd" title="Agregar un golpe">＋</button>
+    </div>
+    <div class="row">
+      <span class="small">Armados:</span>
+      <button data-stk="DI">alternado D I</button>
+      <button data-stk="ID">alternado I D</button>
+      <button data-stk="DDII">doble golpe</button>
+      <button data-stk="DIDDIDII">paradiddle</button>
+      <button data-stk="DDDDDDDDIIIIIIII">8 en cada mano</button>
     </div>
   </div>
 
@@ -332,6 +380,27 @@
         <select data-cfg="gapMute" data-num><option>1</option><option>2</option><option>3</option><option>4</option></select> compás(es)</label>
     </div>
     <p class="small">En el silencio se apaga todo (clic, subdivisión y ancla) y los puntitos dejan de moverse. Seguí tocando y contando; cuando vuelva el sonido, fijate si caés justo en el 1.</p>
+  </div>
+</section>
+
+<section class="sheet" id="registro" hidden>
+  <h1 class="sheet-title">Registro semanal de práctica</h1>
+  <div class="regmeta">
+    <label>Semana del <input type="date" id="regStart"></label>
+    <label class="grow">Objetivo de la semana <input type="text" id="regGoal" maxlength="120" placeholder="Ej: pasar de 1 a 2 golpes por pulso a 70 BPM"></label>
+  </div>
+  <table class="regtable">
+    <thead><tr>
+      <th>Día</th><th>Min.</th><th>Ejercicio (y qué reforzar)</th><th>BPM</th>
+      <th>Vueltas seguidas sin errores</th><th>¿Clavé el 1 tras el silencio?</th><th>Notas</th>
+    </tr></thead>
+    <tbody id="regBody"></tbody>
+    <tfoot><tr><td>Total</td><td id="regTotal">0</td><td colspan="5"></td></tr></tfoot>
+  </table>
+  <p class="small">Consejo: no subas la velocidad del metrónomo hasta lograr ejecutar cada ejercicio 4 veces seguidas sin tensión ni errores de tiempo.</p>
+  <div class="row noprint">
+    <button id="regPrint" class="primary">Imprimir</button>
+    <button id="regNew">Semana nueva (borra lo anotado)</button>
   </div>
 </section>
 
@@ -987,14 +1056,17 @@ checkSharedLink();
 // y dibuja el tablero con una cola de eventos sincronizada con el reloj de audio.
 const PRA_KEY = "bateria-practica-v1";
 const cfg = { subs: [1, 2, 4], pyr: false, unit: 8, loop: true, countIn: true, bpm: 65,
-  click: true, guide: true, lane: "pa", anchor: false, hands: true, lead: "D",
+  click: true, guide: true, lane: "pa", anchor: false, hands: true, sticking: "DI",
   gap: false, gapPlay: 3, gapMute: 1 };
 try {
   const saved = JSON.parse(localStorage.getItem(PRA_KEY));
   Object.assign(cfg, saved);
   if (saved && saved.bars && !saved.unit) cfg.unit = saved.bars * 4;   // versión anterior: compases → pulsos
   delete cfg.bars;
+  if (saved && saved.lead === "I" && !saved.sticking) cfg.sticking = "ID";   // versión anterior: "empezar con la izquierda"
+  delete cfg.lead;
 } catch (e) {}
+if (!/^[DI]{1,16}$/.test(cfg.sticking)) cfg.sticking = "DI";
 const savePra = () => { try { localStorage.setItem(PRA_KEY, JSON.stringify(cfg)); } catch (e) {} };
 
 let pTimer = null, pRaf = null, pNext = 0, pBeat = 0, pEvents = [], pRun = 0;
@@ -1022,19 +1094,19 @@ function roundBars() {
 // Cuántos golpes lleva el pulso número n (contando desde el primero del ejercicio).
 const divAt = (n, seq) => seq[Math.floor(n / cfg.unit) % seq.length];
 // Plan de un compás: golpes de cada uno de sus 4 pulsos y qué mano toca cada golpe.
-// Las manos se alternan sin parar a lo largo de todo el ejercicio, empezando por la elegida.
+// Las manos siguen el orden elegido (cfg.sticking), que se repite sin parar a lo largo de todo el ejercicio.
 function barPlan(bar, startStroke) {
   const seq = praSeq();
   const divs = [0, 1, 2, 3].map(i => divAt(bar * 4 + i, seq));
   let n = startStroke;
-  const hands = divs.map(d => Array.from({ length: d }, () => ((n++ % 2 === 0) === (cfg.lead === "D")) ? "D" : "I"));
+  const hands = divs.map(d => Array.from({ length: d }, () => cfg.sticking[n++ % cfg.sticking.length]));
   return { divs, hands, strokes: n - startStroke };
 }
 
 function drawBoard(divs, hands) {
   $("pBoard").innerHTML = divs.map((d, b) => `<div class="pb" data-b="${b}"><div class="pn">${b + 1}</div>
     <div class="pd" style="--n:${d}">${Array.from({ length: d }, (_, s) =>
-      `<span class="dot ${s === 0 ? "first" : ""}" data-s="${s}"><i></i>${cfg.hands && hands[b][s] ? `<small>${hands[b][s]}</small>` : ""}</span>`).join("")}</div></div>`).join("");
+      `<span class="dot ${s === 0 ? "first" : ""}" data-s="${s}"><i></i>${cfg.hands && hands[b][s] ? `<small class="h${hands[b][s]}">${hands[b][s]}</small>` : ""}</span>`).join("")}</div></div>`).join("");
 }
 function drawSeq(active = -1) {
   $("pSeq").innerHTML = praSeq().map((n, i) => `<span class="${i === active ? "on" : ""}">${n}</span>`).join("");
@@ -1183,6 +1255,22 @@ function initPractice() {
     document.querySelector('[data-cfg="unit"]').value = cfg.unit;
     savePra(); paintChips(); if (!pTimer) drawIdle();
   });
+  // orden de las manos
+  const paintSticks = () => {
+    $("pSticks").innerHTML = [...cfg.sticking].map((h, i) => `<button class="${h}" data-i="${i}" title="Golpe ${i + 1}">${h}</button>`).join("");
+    $("pSticks").querySelectorAll("button").forEach(b => b.onclick = () => {
+      const i = +b.dataset.i;
+      setSticking(cfg.sticking.slice(0, i) + (cfg.sticking[i] === "D" ? "I" : "D") + cfg.sticking.slice(i + 1));
+    });
+  };
+  function setSticking(str) {
+    cfg.sticking = str; savePra(); paintSticks();
+    if (!pTimer) drawIdle();
+  }
+  $("stkAdd").onclick = () => { if (cfg.sticking.length < 16) setSticking(cfg.sticking + (cfg.sticking.at(-1) === "D" ? "I" : "D")); };
+  $("stkDel").onclick = () => { if (cfg.sticking.length > 1) setSticking(cfg.sticking.slice(0, -1)); };
+  document.querySelectorAll("[data-stk]").forEach(b => b.onclick = () => setSticking(b.dataset.stk));
+  paintSticks();
   // tempo
   $("pBpm").value = cfg.bpm;
   $("pDown").onclick = () => setPraBpm(cfg.bpm - 5);
@@ -1196,16 +1284,80 @@ function initPractice() {
   drawStreak(); drawIdle();
 }
 
+// ---------- Registro semanal ----------
+const REG_KEY = "bateria-registro-v1";
+const emptyRow = () => ({ min: "", ex: "", bpm: "", run: "", sil: "", note: "" });
+const reg = { start: "", goal: "", rows: Array.from({ length: 7 }, emptyRow) };
+try {
+  const saved = JSON.parse(localStorage.getItem(REG_KEY));
+  if (saved && Array.isArray(saved.rows) && saved.rows.length === 7) {
+    reg.start = /^\d{4}-\d{2}-\d{2}$/.test(saved.start) ? saved.start : "";
+    reg.goal = String(saved.goal || "").slice(0, 120);
+    reg.rows = saved.rows.map(r => ({ ...emptyRow(), ...r }));
+  }
+} catch (e) {}
+const saveReg = () => { try { localStorage.setItem(REG_KEY, JSON.stringify(reg)); } catch (e) {} };
+
+// "Lunes 03/11" si hay fecha de inicio; si no, "Día 1"
+function dayLabel(i) {
+  if (!reg.start) return `Día ${i + 1}`;
+  const d = new Date(reg.start + "T12:00:00");
+  d.setDate(d.getDate() + i);
+  const name = d.toLocaleDateString("es-AR", { weekday: "long" });
+  return name[0].toUpperCase() + name.slice(1) + " " + String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0");
+}
+function regTotal() {
+  $("regTotal").textContent = reg.rows.reduce((n, r) => n + (parseInt(r.min, 10) || 0), 0) + " min";
+}
+function renderReg() {
+  $("regStart").value = reg.start;
+  $("regGoal").value = reg.goal;
+  $("regBody").innerHTML = reg.rows.map((r, i) => `<tr>
+    <td class="rday">${dayLabel(i)}</td>
+    <td style="width:64px"><input type="number" min="0" max="600" data-r="${i}" data-k="min"></td>
+    <td><input type="text" maxlength="120" data-r="${i}" data-k="ex"></td>
+    <td style="width:64px"><input type="number" min="30" max="240" data-r="${i}" data-k="bpm"></td>
+    <td style="width:96px"><input type="number" min="0" max="99" data-r="${i}" data-k="run"></td>
+    <td class="sil">${[["si", "Sí"], ["casi", "Casi"], ["no", "No"]].map(([v, t]) =>
+      `<label><input type="radio" name="sil${i}" value="${v}" data-r="${i}" data-k="sil"> ${t}</label>`).join("")}</td>
+    <td><input type="text" maxlength="120" data-r="${i}" data-k="note"></td></tr>`).join("");
+  // los valores se asignan por propiedad (no por HTML), así nada de lo escrito se interpreta como código
+  $("regBody").querySelectorAll("input").forEach(inp => {
+    const r = reg.rows[+inp.dataset.r];
+    if (inp.type === "radio") inp.checked = r.sil === inp.value; else inp.value = r[inp.dataset.k];
+  });
+  regTotal();
+}
+$("regBody").oninput = e => {
+  const t = e.target, r = reg.rows[+t.dataset.r];
+  if (!r) return;
+  r[t.dataset.k] = t.type === "radio" ? t.value : t.value.slice(0, 120);
+  saveReg(); regTotal();
+};
+$("regStart").onchange = () => { reg.start = $("regStart").value; saveReg(); renderReg(); };
+$("regGoal").oninput = () => { reg.goal = $("regGoal").value.slice(0, 120); saveReg(); };
+$("regPrint").onclick = () => window.print();
+$("regNew").onclick = () => {
+  if (!confirm("Esto borra todo lo anotado en el registro de esta semana. Si lo querés conservar, antes imprimilo. ¿Seguir?")) return;
+  reg.start = ""; reg.goal = ""; reg.rows = Array.from({ length: 7 }, emptyRow);
+  saveReg(); renderReg();
+};
+
 // Pestañas
 function setView(v) {
   stopMetro(); if (pTimer || pRaf) stopPractice();
-  const pra = v === "practica";
-  document.body.classList.toggle("v-practica", pra);
-  $("practica").hidden = !pra; $("esquemas").hidden = pra;
-  $("tabPra").classList.toggle("on", pra); $("tabSch").classList.toggle("on", !pra);
+  document.body.classList.toggle("v-practica", v !== "esquemas");   // oculta los botones que son solo de esquemas
+  $("esquemas").hidden = v !== "esquemas";
+  $("practica").hidden = v !== "practica";
+  $("registro").hidden = v !== "registro";
+  $("tabSch").classList.toggle("on", v === "esquemas");
+  $("tabPra").classList.toggle("on", v === "practica");
+  $("tabReg").classList.toggle("on", v === "registro");
+  if (v === "registro") renderReg();
 }
 $("tabSch").onclick = () => setView("esquemas");
 $("tabPra").onclick = () => setView("practica");
+$("tabReg").onclick = () => setView("registro");
 initPractice();
 
 // App instalable y sin conexión (solo funciona servida por https o localhost, no desde un archivo).
