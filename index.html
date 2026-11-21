@@ -157,6 +157,10 @@
   .rampbox input[type=number] { width: 64px; }
   #pRamp[hidden] { display: none; }
   #mNow { font-size: 14px; }
+  .up { color: #15803d; } .down { color: #dc2626; }
+  .ptempo { min-height: 2.2em; display: flex; align-items: center; justify-content: center; font: 800 clamp(20px, 6vw, 30px) system-ui; border-radius: 8px; }
+  .ptempo.up { background: #dcfce7; color: #15803d; } .ptempo.down { background: #fee2e2; color: #dc2626; }
+  .pstage.full .ptempo { order: 2; }
   .pbpmbox { display: none; align-items: center; justify-content: center; gap: 10px; }
   .pbpmbox button { font-size: 22px; padding: 6px 18px; }
   .pbpmbox b { font-size: 22px; min-width: 4.5em; text-align: center; }
@@ -307,7 +311,7 @@
       <label class="opt"><input type="checkbox" id="rOn"> activar (sube o baja solo)</label>
       <label class="opt">de <input id="rMin" type="number" min="30" max="240"> a <input id="rMax" type="number" min="30" max="240"> BPM</label>
       <label class="opt">cambia <select id="rStep"><option>1</option><option>2</option><option>5</option><option>10</option></select> BPM cada
-        <select id="rEvery"><option value="1">1 compás</option><option value="2">2 compases</option><option value="4">4 compases</option><option value="8">8 compases</option><option value="16">16 compases</option></select></label>
+        <select id="rEvery"><option value="1">1 vuelta</option><option value="2">2 vueltas</option><option value="3">3 vueltas</option><option value="4">4 vueltas</option><option value="8">8 vueltas</option></select></label>
       <label class="opt">empieza por <select id="rDir"><option value="up">el mínimo (sube)</option><option value="down">el máximo (baja)</option></select></label>
       <label class="opt"><input type="checkbox" id="rBack"> ida y vuelta (si no, se queda en el final)</label>
     </div>
@@ -350,6 +354,7 @@
     </div>
     <div class="pseq" id="pSeq"></div>
     <div id="pWarn" class="pwarn" aria-live="polite"></div>
+    <div id="pTempo" class="ptempo" aria-live="polite"></div>
     <div id="pInfo" class="small"></div>
     <div id="pSilence" class="psilence" hidden>🤫 Silencio. Seguí el pulso en tu cabeza.</div>
     <div id="pBoard" class="pboard"></div>
@@ -423,7 +428,7 @@
       <span class="small">Tempo variable:</span>
       <label class="opt">de <input data-cfg="rMin" data-num type="number" min="30" max="240"> a <input data-cfg="rMax" data-num type="number" min="30" max="240"> BPM</label>
       <label class="opt">cambia <select data-cfg="rStep" data-num><option>1</option><option>2</option><option>5</option><option>10</option></select> BPM cada
-        <select data-cfg="rEvery" data-num><option value="1">1 compás</option><option value="2">2 compases</option><option value="4">4 compases</option><option value="8">8 compases</option><option value="16">16 compases</option></select></label>
+        <select data-cfg="rEvery" data-num><option value="1">1 vuelta</option><option value="2">2 vueltas</option><option value="3">3 vueltas</option><option value="4">4 vueltas</option><option value="8">8 vueltas</option></select></label>
       <label class="opt">empieza por <select data-cfg="rDir"><option value="up">el mínimo (sube)</option><option value="down">el máximo (baja)</option></select></label>
       <label class="opt"><input type="checkbox" data-cfg="rBack"> ida y vuelta</label>
     </div>
@@ -947,13 +952,13 @@ let actx = null, mTimer = null, mNext = 0, mPos = 0, mTarget = null, mRun = 0;
 const bpmEl = $("bpm");
 try { bpmEl.value = localStorage.getItem(BPM_STORE) || 80; } catch (e) {}
 // Tempo variable: sube o baja entre un mínimo y un máximo cada tantos compases.
-// r = { rMin, rMax, rStep, rEvery, rDir: "up"|"down", rBack } ; bar = compás actual (desde 0)
-function rampBpm(r, bar) {
+// r = { rMin, rMax, rStep, rEvery, rDir: "up"|"down", rBack } ; cycle = vuelta completa en curso (desde 0)
+function rampBpm(r, cycle) {
   const lo = Math.max(30, Math.min(240, Math.round(+r.rMin) || 60));
   const hi = Math.max(lo, Math.min(240, Math.round(+r.rMax) || lo));
   const st = Math.max(1, Math.round(+r.rStep) || 5), ev = Math.max(1, Math.round(+r.rEvery) || 1);
   const L = Math.ceil((hi - lo) / st) + 1;                       // cantidad de escalones
-  const steps = Math.floor(Math.max(0, bar) / ev);
+  const steps = Math.floor(Math.max(0, cycle) / ev);
   let i = 0;
   if (L > 1 && r.rBack) { const per = 2 * (L - 1), k = steps % per; i = k < L ? k : per - k; }
   else if (L > 1) i = Math.min(steps, L - 1);
@@ -961,7 +966,7 @@ function rampBpm(r, bar) {
   return Math.min(hi, lo + i * st);
 }
 const RAMP_KEY = "bateria-rampa";
-const mr = { ramp: false, rMin: 60, rMax: 100, rStep: 5, rEvery: 4, rDir: "up", rBack: false };
+const mr = { ramp: false, rMin: 60, rMax: 100, rStep: 5, rEvery: 1, rDir: "up", rBack: false };
 try { Object.assign(mr, JSON.parse(localStorage.getItem(RAMP_KEY))); } catch (e) {}
 let mBpmNow = 0;
 const getBpm = () => Math.min(240, Math.max(30, +bpmEl.value || 80));
@@ -1089,7 +1094,15 @@ function mark(at, bi, beat, s) {
 function schedule() {
   while (mNext < actx.currentTime + 0.12) {
     const beat = mPos % BEATS, bar = Math.floor(mPos / BEATS);
-    if (beat === 0 && mr.ramp) { mBpmNow = rampBpm(mr, bar); $("mNow").textContent = "♩ " + mBpmNow; }
+    if (beat === 0 && mr.ramp) {
+      // la velocidad solo cambia al empezar una vuelta completa (todos los elegidos, o el bloque que suena)
+      const len = mTarget === "all" ? Math.max(1, pickedIdx().length) : 1, cyc = Math.floor(bar / len);
+      mBpmNow = rampBpm(mr, cyc);
+      const nx = (bar + 1) % len === 0 ? rampBpm(mr, cyc + 1) : mBpmNow;     // último bloque de la vuelta: avisa lo que viene
+      const up = nx > mBpmNow, dn = nx < mBpmNow;
+      $("mNow").className = up ? "up" : dn ? "down" : "";
+      $("mNow").textContent = "♩ " + mBpmNow + (up ? " ▲ " + nx : dn ? " ▼ " + nx : "");
+    }
     const beatDur = 60 / (mr.ramp && mBpmNow ? mBpmNow : getBpm());
     let bi = null;
     if (mTarget === "all") {
@@ -1198,7 +1211,7 @@ checkSharedLink();
 // y dibuja el tablero con una cola de eventos sincronizada con el reloj de audio.
 const PRA_KEY = "bateria-practica-v1";
 const cfg = { subs: [1, 2, 4], pyr: false, unit: 8, loop: true, countIn: true, bpm: 65,
-  ramp: false, rMin: 60, rMax: 100, rStep: 5, rEvery: 4, rDir: "up", rBack: false,
+  ramp: false, rMin: 60, rMax: 100, rStep: 5, rEvery: 1, rDir: "up", rBack: false,
   click: true, guide: true, lane: "pa", anchor: false, hands: true, sticking: "DI",
   gap: false, gapPlay: 3, gapMute: 1, warn: true, warnBeats: 2,
   full: matchMedia("(max-width: 700px)").matches };   // pantalla completa al empezar: sí en el celular, no en la PC
@@ -1276,7 +1289,7 @@ function drawIdle() {
   $("pStep").textContent = "Listo para empezar";
   $("pInfo").textContent = `Va a practicar ${praSeq().join(" → ")} golpes por pulso, cambiando ${unitText()}, a ${cfg.ramp ? `${cfg.rMin}–${cfg.rMax} BPM (tempo variable)` : cfg.bpm + " BPM"}.`;
   $("pBpmF").textContent = (cfg.ramp ? rampBpm(cfg, 0) : cfg.bpm) + " BPM";
-  $("pSilence").hidden = true;
+  $("pSilence").hidden = true; $("pTempo").className = "ptempo"; $("pTempo").textContent = "";
   const plan = barPlan(0, 0);
   drawSeq(); drawBoard(plan.divs, plan.hands);
 }
@@ -1287,7 +1300,12 @@ function praSchedule() {
     const beat = pBeat % 4;
     const countIn = pCountIn && pBeat < 4;
     const beatIdx = pBeat - (pCountIn ? 4 : 0), bar = Math.floor(beatIdx / 4), rb = roundBars();
-    if (beat === 0 && cfg.ramp) pBpmNow = rampBpm(cfg, Math.max(0, bar));
+    let tempoNext = null;
+    if (beat === 0 && cfg.ramp) {
+      const cyc = Math.floor(Math.max(0, bar) / rb);
+      pBpmNow = rampBpm(cfg, cyc);
+      if (!countIn && (bar + 1) % rb === 0) tempoNext = rampBpm(cfg, cyc + 1);   // último compás de la vuelta: avisa lo que viene
+    }
     const bpmNow = cfg.ramp && pBpmNow ? pBpmNow : cfg.bpm;
     const beatDur = 60 / bpmNow;
     if (!cfg.loop && !countIn && bar >= rb) {                 // terminó la única vuelta
@@ -1298,7 +1316,7 @@ function praSchedule() {
     const muted = !countIn && cfg.gap && (bar % (cfg.gapPlay + cfg.gapMute)) >= cfg.gapPlay;
     if (beat === 0) {
       pPlan = countIn ? { divs: [1, 1, 1, 1], hands: [[""], [""], [""], [""]], strokes: 0 } : barPlan(bar, pStroke);
-      pEvents.push({ type: "bar", at: pNext, bar, plan: pPlan, muted, countIn, rb, bpm: bpmNow });
+      pEvents.push({ type: "bar", at: pNext, bar, plan: pPlan, muted, countIn, rb, bpm: bpmNow, tempoNext });
     }
     const div = pPlan.divs[beat];
     const seq = praSeq();
@@ -1338,6 +1356,9 @@ function praApply(ev) {
   if (ev.type === "bar") {
     drawTime();
     $("pBpmF").textContent = ev.bpm + " BPM";
+    const tn = ev.tempoNext, tp = $("pTempo");
+    tp.className = "ptempo" + (tn > ev.bpm ? " up" : tn < ev.bpm ? " down" : "");
+    tp.textContent = tn > ev.bpm ? `▲ ${tn} BPM` : tn < ev.bpm ? `▼ ${tn} BPM` : "";
     drawBoard(ev.plan.divs, ev.plan.hands);
     $("pSilence").hidden = !ev.muted;
     $("pBoard").style.visibility = ev.muted ? "hidden" : "visible";   // en el silencio no se ve el pulso
