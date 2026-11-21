@@ -145,9 +145,19 @@
   .pseq { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
   .pseq span { padding: 3px 12px; border: 1px solid var(--line); border-radius: 999px; font-weight: 700; color: var(--muted); }
   .pseq span.on { background: var(--now); border-color: #d4a017; color: var(--ink); }
-  .pwarn { min-height: 2.8em; display: flex; align-items: center; margin: 6px 0; padding: 0 12px; border: 2px solid transparent; border-radius: 8px; font: 700 clamp(15px, 3.8vw, 22px) system-ui; }
-  .pwarn.soon { background: #fff7e0; border-color: #f59e0b; }
-  .pwarn.now { background: #dcfce7; border-color: #16a34a; }
+  .pwarn { min-height: 3.6em; display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0; padding: 4px 12px; border: 2px solid transparent; border-radius: 8px; }
+  .pwarn i { display: block; width: clamp(28px, 8vw, 56px); aspect-ratio: 1; border-radius: 50%; border: 4px solid #dc2626; background: transparent; box-sizing: border-box; }
+  .pwarn.soon { background: #fef2f2; border-color: #fca5a5; }
+  .pwarn.soon.k3 i { opacity: .45; }
+  .pwarn.soon.k2 i { opacity: .75; background: rgba(220,38,38,.25); }
+  .pwarn.soon.k1 i { background: rgba(220,38,38,.55); animation: pwpulse .45s ease-in-out infinite alternate; }
+  .pwarn.now { background: #fee2e2; border-color: #dc2626; }
+  .pwarn.now i { background: #dc2626; }
+  @keyframes pwpulse { to { transform: scale(1.18); } }
+  .pbpmbox { display: none; align-items: center; justify-content: center; gap: 10px; }
+  .pbpmbox button { font-size: 22px; padding: 6px 18px; }
+  .pbpmbox b { font-size: 22px; min-width: 4.5em; text-align: center; }
+  .pstage.full .pbpmbox { display: flex; order: 6; }
   .pseq span.next { border: 1px dashed #f59e0b; color: var(--ink); }
   .psilence { background: #eef2ff; border: 1px solid #6366f1; border-radius: 8px; padding: 8px 12px; margin: 8px 0; font-weight: 600; }
   .pboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
@@ -178,7 +188,7 @@
   .pstage.full .pn { font-size: clamp(36px, 12vw, 72px); }
   .pstage.full .dot i { max-width: 72px; }
   .pstage.full .dot small { font-size: clamp(14px, 4.5vw, 26px); }
-  .pstage.full #pStart { order: 6; font-size: 20px; padding: 16px; width: 100%; }
+  .pstage.full #pStart { order: 7; font-size: 20px; padding: 16px; width: 100%; }
   /* celular en vertical: los 4 pulsos como 4 filas (número a la izquierda, golpes a lo ancho), así cada golpe se ve grande */
   @media (orientation: portrait) {
     .pstage.full .pboard { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); gap: 8px; }
@@ -329,6 +339,7 @@
     <div id="pInfo" class="small"></div>
     <div id="pSilence" class="psilence" hidden>🤫 Silencio. Seguí el pulso en tu cabeza.</div>
     <div id="pBoard" class="pboard"></div>
+    <div class="pbpmbox"><button id="pDownF" aria-label="Bajar tempo">−</button><b id="pBpmF"></b><button id="pUpF" aria-label="Subir tempo">＋</button></div>
   </div>
 
   <div class="pcard">
@@ -1197,11 +1208,14 @@ function drawSeq(active = -1, next = -2) {
 function showWarn(ev) {
   const el = $("pWarn");
   if (ev.muted) { el.className = "pwarn"; el.textContent = ""; return; }
-  if (ev.isNow) { el.className = "pwarn now"; el.textContent = `¡Ahora! ${plural(ev.nowDiv)}`; }
+  // Solo círculos rojos: tantos como golpes por pulso van a venir. Sin texto que leer.
+  const dots = n => Array.from({ length: n }, () => "<i></i>").join("");
+  if (ev.isNow) { el.className = "pwarn now"; el.innerHTML = dots(ev.nowDiv); el.setAttribute("aria-label", plural(ev.nowDiv)); }
   else if (ev.warn) {
-    el.className = "pwarn soon";
-    el.textContent = `Se viene: ${plural(ev.warn.div)} · ${ev.warn.k === 1 ? "en el próximo pulso" : "en " + ev.warn.k + " pulsos"}`;
-  } else { el.className = "pwarn"; el.textContent = ""; }
+    el.className = "pwarn soon k" + Math.min(ev.warn.k, 3);
+    el.innerHTML = dots(ev.warn.div);
+    el.setAttribute("aria-label", `Se viene: ${plural(ev.warn.div)}`);
+  } else { el.className = "pwarn"; el.textContent = ""; el.removeAttribute("aria-label"); }
 }
 function drawIdle() {
   $("pStep").textContent = "Listo para empezar";
@@ -1395,7 +1409,7 @@ function drawStreak() {
 }
 function setPraBpm(v) {
   cfg.bpm = Math.min(240, Math.max(30, Math.round(+v) || 65));
-  $("pBpm").value = cfg.bpm; savePra();
+  $("pBpm").value = cfg.bpm; $("pBpmF").textContent = cfg.bpm + " BPM"; savePra();
   streak = 0; drawStreak();
   if (!pTimer) drawIdle();
 }
@@ -1450,9 +1464,9 @@ function initPractice() {
   document.querySelectorAll("[data-stk]").forEach(b => b.onclick = () => setSticking(b.dataset.stk));
   paintSticks();
   // tempo
-  $("pBpm").value = cfg.bpm;
-  $("pDown").onclick = () => setPraBpm(cfg.bpm - 5);
-  $("pUp").onclick = () => setPraBpm(cfg.bpm + 5);
+  $("pBpm").value = cfg.bpm; $("pBpmF").textContent = cfg.bpm + " BPM";
+  $("pDown").onclick = $("pDownF").onclick = () => setPraBpm(cfg.bpm - 5);
+  $("pUp").onclick = $("pUpF").onclick = () => setPraBpm(cfg.bpm + 5);
   $("pBpm").onchange = () => setPraBpm($("pBpm").value);
   // progreso
   $("pOk").onclick = () => { streak++; drawStreak(); };
