@@ -154,6 +154,9 @@
   .pwarn.now { background: #fee2e2; border-color: #dc2626; }
   .pwarn.now i { background: #dc2626; }
   @keyframes pwpulse { to { transform: scale(1.18); } }
+  .rampbox input[type=number] { width: 64px; }
+  #pRamp[hidden] { display: none; }
+  #mNow { font-size: 14px; }
   .pbpmbox { display: none; align-items: center; justify-content: center; gap: 10px; }
   .pbpmbox button { font-size: 22px; padding: 6px 18px; }
   .pbpmbox b { font-size: 22px; min-width: 4.5em; text-align: center; }
@@ -289,15 +292,26 @@
   <label class="opt only-sch"><input type="checkbox" id="perPage"> Un bloque por hoja</label>
   <span class="metro only-sch">
     <button id="mPlay" class="primary">▶ Metrónomo</button>
-    <button id="mAll" title="Toca los bloques que tengan tildado 'practicar', en orden, y vuelve a empezar">▶ Practicar los elegidos</button>
+    <button id="mAll" title="Toca los bloques que tengan tildado 'incluir', en orden, y vuelve a empezar">▶ Practicar los elegidos</button>
     <button id="mDown" title="Bajar 5 BPM">−</button>
     <input id="bpm" type="number" min="30" max="240" value="80"> <span class="opt">BPM</span>
     <button id="mUp" title="Subir 5 BPM">+</button>
     <label class="opt"><input type="checkbox" id="mDrums" checked> 🥁 sonar el patrón</label>
     <label class="opt"><input type="checkbox" id="mClick" checked> clic</label>
     <label class="opt"><input type="checkbox" id="mSub"> marcar el "y"</label>
-    <span class="dots" id="dots"><i></i><i></i><i></i><i></i></span>
+    <span class="dots" id="dots"><i></i><i></i><i></i><i></i></span> <b id="mNow"></b>
   </span>
+  <details class="more left only-sch" id="rampD">
+    <summary id="rSum">📈 Tempo variable</summary>
+    <div class="rampbox">
+      <label class="opt"><input type="checkbox" id="rOn"> activar (sube o baja solo)</label>
+      <label class="opt">de <input id="rMin" type="number" min="30" max="240"> a <input id="rMax" type="number" min="30" max="240"> BPM</label>
+      <label class="opt">cambia <select id="rStep"><option>1</option><option>2</option><option>5</option><option>10</option></select> BPM cada
+        <select id="rEvery"><option value="1">1 compás</option><option value="2">2 compases</option><option value="4">4 compases</option><option value="8">8 compases</option><option value="16">16 compases</option></select></label>
+      <label class="opt">empieza por <select id="rDir"><option value="up">el mínimo (sube)</option><option value="down">el máximo (baja)</option></select></label>
+      <label class="opt"><input type="checkbox" id="rBack"> ida y vuelta (si no, se queda en el final)</label>
+    </div>
+  </details>
   <details class="more left mixer">
     <summary>🎚 Volumen</summary>
     <div id="mixer"></div>
@@ -402,7 +416,16 @@
         <button id="pUp" title="Subir 5 BPM">+</button>
       </span>
       <label class="opt"><input type="checkbox" data-cfg="click"> clic en cada pulso</label>
+      <label class="opt"><input type="checkbox" data-cfg="ramp"> 📈 tempo variable</label>
       <label class="opt"><input type="checkbox" data-cfg="full"> pantalla completa al empezar</label>
+    </div>
+    <div class="row rampbox" id="pRamp">
+      <span class="small">Tempo variable:</span>
+      <label class="opt">de <input data-cfg="rMin" data-num type="number" min="30" max="240"> a <input data-cfg="rMax" data-num type="number" min="30" max="240"> BPM</label>
+      <label class="opt">cambia <select data-cfg="rStep" data-num><option>1</option><option>2</option><option>5</option><option>10</option></select> BPM cada
+        <select data-cfg="rEvery" data-num><option value="1">1 compás</option><option value="2">2 compases</option><option value="4">4 compases</option><option value="8">8 compases</option><option value="16">16 compases</option></select></label>
+      <label class="opt">empieza por <select data-cfg="rDir"><option value="up">el mínimo (sube)</option><option value="down">el máximo (baja)</option></select></label>
+      <label class="opt"><input type="checkbox" data-cfg="rBack"> ida y vuelta</label>
     </div>
     <div class="row">
       <label class="opt"><input type="checkbox" data-cfg="guide"> la subdivisión, sonando con</label>
@@ -621,7 +644,7 @@ function render() {
     el.innerHTML = `
       <div class="block-head">
         <input class="block-name" placeholder="Nombre del bloque">
-        <label class="pick" title="Incluir este bloque en 'Practicar los elegidos'"><input type="checkbox" data-act="pick"> practicar</label>
+        <label class="pick" title="Incluir este bloque en 'Practicar los elegidos'"><input type="checkbox" data-act="pick"> incluir</label>
         <button data-act="practice" class="practice">▶ Practicar</button>
         <select class="clear" title="Borrar los golpes de un instrumento en este bloque">
           <option value="">🧹 Limpiar…</option>
@@ -923,6 +946,24 @@ const BPM_STORE = "bateria-bpm";
 let actx = null, mTimer = null, mNext = 0, mPos = 0, mTarget = null, mRun = 0;
 const bpmEl = $("bpm");
 try { bpmEl.value = localStorage.getItem(BPM_STORE) || 80; } catch (e) {}
+// Tempo variable: sube o baja entre un mínimo y un máximo cada tantos compases.
+// r = { rMin, rMax, rStep, rEvery, rDir: "up"|"down", rBack } ; bar = compás actual (desde 0)
+function rampBpm(r, bar) {
+  const lo = Math.max(30, Math.min(240, Math.round(+r.rMin) || 60));
+  const hi = Math.max(lo, Math.min(240, Math.round(+r.rMax) || lo));
+  const st = Math.max(1, Math.round(+r.rStep) || 5), ev = Math.max(1, Math.round(+r.rEvery) || 1);
+  const L = Math.ceil((hi - lo) / st) + 1;                       // cantidad de escalones
+  const steps = Math.floor(Math.max(0, bar) / ev);
+  let i = 0;
+  if (L > 1 && r.rBack) { const per = 2 * (L - 1), k = steps % per; i = k < L ? k : per - k; }
+  else if (L > 1) i = Math.min(steps, L - 1);
+  if (r.rDir === "down") i = L - 1 - i;
+  return Math.min(hi, lo + i * st);
+}
+const RAMP_KEY = "bateria-rampa";
+const mr = { ramp: false, rMin: 60, rMax: 100, rStep: 5, rEvery: 4, rDir: "up", rBack: false };
+try { Object.assign(mr, JSON.parse(localStorage.getItem(RAMP_KEY))); } catch (e) {}
+let mBpmNow = 0;
 const getBpm = () => Math.min(240, Math.max(30, +bpmEl.value || 80));
 const setBpm = v => { bpmEl.value = Math.min(240, Math.max(30, v)); try { localStorage.setItem(BPM_STORE, bpmEl.value); } catch (e) {} };
 
@@ -1047,7 +1088,9 @@ function mark(at, bi, beat, s) {
 // Programa un pulso entero: un clic en el pulso y, si se pide, uno en cada golpe de entre medio.
 function schedule() {
   while (mNext < actx.currentTime + 0.12) {
-    const beatDur = 60 / getBpm(), beat = mPos % BEATS, bar = Math.floor(mPos / BEATS);
+    const beat = mPos % BEATS, bar = Math.floor(mPos / BEATS);
+    if (beat === 0 && mr.ramp) { mBpmNow = rampBpm(mr, bar); $("mNow").textContent = "♩ " + mBpmNow; }
+    const beatDur = 60 / (mr.ramp && mBpmNow ? mBpmNow : getBpm());
     let bi = null;
     if (mTarget === "all") {
       const ids = pickedIdx();
@@ -1101,7 +1144,7 @@ document.addEventListener("visibilitychange", () => { if ((mTimer || pTimer) && 
 
 function stopMetro() {
   holdScreen(false);
-  clearInterval(mTimer); mTimer = null; mRun++;
+  clearInterval(mTimer); mTimer = null; mRun++; mBpmNow = 0; $("mNow").textContent = "";
   document.querySelectorAll(".now").forEach(e => e.classList.remove("now"));
   $("dots").querySelectorAll("i").forEach(d => d.classList.remove("on"));
   updateMetroUI();
@@ -1124,6 +1167,17 @@ $("mAll").onclick = () => startMetro("all");
 $("mDown").onclick = () => setBpm(getBpm() - 5);
 $("mUp").onclick = () => setBpm(getBpm() + 5);
 bpmEl.onchange = () => setBpm(getBpm());
+function drawRampSum() { $("rSum").textContent = mr.ramp ? `📈 ${mr.rMin}–${mr.rMax} BPM` : "📈 Tempo variable"; }
+[["rOn", "ramp"], ["rMin", "rMin"], ["rMax", "rMax"], ["rStep", "rStep"], ["rEvery", "rEvery"], ["rDir", "rDir"], ["rBack", "rBack"]].forEach(([id, k]) => {
+  const el = $(id);
+  if (el.type === "checkbox") el.checked = !!mr[k]; else el.value = mr[k];
+  el.onchange = () => {
+    mr[k] = el.type === "checkbox" ? el.checked : (k === "rDir" ? el.value : +el.value);
+    try { localStorage.setItem(RAMP_KEY, JSON.stringify(mr)); } catch (e) {}
+    drawRampSum();
+  };
+});
+drawRampSum();
 
 // ---------- Avisos ----------
 function showNotice(html, err) {
@@ -1144,6 +1198,7 @@ checkSharedLink();
 // y dibuja el tablero con una cola de eventos sincronizada con el reloj de audio.
 const PRA_KEY = "bateria-practica-v1";
 const cfg = { subs: [1, 2, 4], pyr: false, unit: 8, loop: true, countIn: true, bpm: 65,
+  ramp: false, rMin: 60, rMax: 100, rStep: 5, rEvery: 4, rDir: "up", rBack: false,
   click: true, guide: true, lane: "pa", anchor: false, hands: true, sticking: "DI",
   gap: false, gapPlay: 3, gapMute: 1, warn: true, warnBeats: 2,
   full: matchMedia("(max-width: 700px)").matches };   // pantalla completa al empezar: sí en el celular, no en la PC
@@ -1159,7 +1214,7 @@ if (!/^[DI]{1,16}$/.test(cfg.sticking)) cfg.sticking = "DI";
 const savePra = () => { try { localStorage.setItem(PRA_KEY, JSON.stringify(cfg)); } catch (e) {} };
 
 let pTimer = null, pRaf = null, pNext = 0, pBeat = 0, pEvents = [], pRun = 0;
-let pStroke = 0, pPlan = null, pCountIn = true, lastStep = -2, lastNext = -2;
+let pBpmNow = 0, pStroke = 0, pPlan = null, pCountIn = true, lastStep = -2, lastNext = -2;
 let pT0 = null, pSecs = 0;          // tiempo practicado desde la última vez que se anotó
 let streak = 0;
 
@@ -1219,7 +1274,8 @@ function showWarn(ev) {
 }
 function drawIdle() {
   $("pStep").textContent = "Listo para empezar";
-  $("pInfo").textContent = `Va a practicar ${praSeq().join(" → ")} golpes por pulso, cambiando ${unitText()}, a ${cfg.bpm} BPM.`;
+  $("pInfo").textContent = `Va a practicar ${praSeq().join(" → ")} golpes por pulso, cambiando ${unitText()}, a ${cfg.ramp ? `${cfg.rMin}–${cfg.rMax} BPM (tempo variable)` : cfg.bpm + " BPM"}.`;
+  $("pBpmF").textContent = (cfg.ramp ? rampBpm(cfg, 0) : cfg.bpm) + " BPM";
   $("pSilence").hidden = true;
   const plan = barPlan(0, 0);
   drawSeq(); drawBoard(plan.divs, plan.hands);
@@ -1228,9 +1284,12 @@ function drawIdle() {
 // Programa un pulso: el clic, la subdivisión y el ancla, y los eventos para la pantalla.
 function praSchedule() {
   while (pNext < actx.currentTime + 0.12) {
-    const beatDur = 60 / cfg.bpm, beat = pBeat % 4;
+    const beat = pBeat % 4;
     const countIn = pCountIn && pBeat < 4;
     const beatIdx = pBeat - (pCountIn ? 4 : 0), bar = Math.floor(beatIdx / 4), rb = roundBars();
+    if (beat === 0 && cfg.ramp) pBpmNow = rampBpm(cfg, Math.max(0, bar));
+    const bpmNow = cfg.ramp && pBpmNow ? pBpmNow : cfg.bpm;
+    const beatDur = 60 / bpmNow;
     if (!cfg.loop && !countIn && bar >= rb) {                 // terminó la única vuelta
       pEvents.push({ type: "end", at: pNext });
       clearInterval(pTimer); pTimer = null;
@@ -1239,7 +1298,7 @@ function praSchedule() {
     const muted = !countIn && cfg.gap && (bar % (cfg.gapPlay + cfg.gapMute)) >= cfg.gapPlay;
     if (beat === 0) {
       pPlan = countIn ? { divs: [1, 1, 1, 1], hands: [[""], [""], [""], [""]], strokes: 0 } : barPlan(bar, pStroke);
-      pEvents.push({ type: "bar", at: pNext, bar, plan: pPlan, muted, countIn, rb });
+      pEvents.push({ type: "bar", at: pNext, bar, plan: pPlan, muted, countIn, rb, bpm: bpmNow });
     }
     const div = pPlan.divs[beat];
     const seq = praSeq();
@@ -1278,6 +1337,7 @@ function praApply(ev) {
   if (ev.type === "end") return stopPractice();
   if (ev.type === "bar") {
     drawTime();
+    $("pBpmF").textContent = ev.bpm + " BPM";
     drawBoard(ev.plan.divs, ev.plan.hands);
     $("pSilence").hidden = !ev.muted;
     $("pBoard").style.visibility = ev.muted ? "hidden" : "visible";   // en el silencio no se ve el pulso
@@ -1289,6 +1349,7 @@ function praApply(ev) {
       const d = ev.plan.divs;
       $("pStep").textContent = d.every(x => x === d[0]) ? plural(d[0]) : "Golpes por pulso: " + d.join(" · ");
       $("pInfo").textContent = `Compás ${ev.bar + 1} · vuelta ${Math.floor(ev.bar / ev.rb) + 1}` +
+        (cfg.ramp ? ` · ${ev.bpm} BPM` : "") +
         (ev.bar > 0 && ev.bar % ev.rb === 0 ? " · ¡vuelta completa! Marcá cómo te fue ↓" : "");
     }
     return;
@@ -1394,7 +1455,7 @@ function logPractice() {
   r.min = String(Math.min(600, (parseInt(r.min, 10) || 0) + mins));
   r.ex = !r.ex ? desc : r.ex.includes(desc) ? r.ex : (r.ex + " + " + desc);
   r.ex = r.ex.slice(0, 120);
-  r.bpm = String(cfg.bpm);
+  r.bpm = String(cfg.ramp && pBpmNow ? pBpmNow : cfg.bpm);
   r.run = String(Math.max(parseInt(r.run, 10) || 0, streak));
   saveReg();
   pSecs = 0; if (pT0 !== null) pT0 = performance.now();   // la práctica en curso sigue contando desde cero
@@ -1406,6 +1467,15 @@ function logPractice() {
 function drawStreak() {
   $("pStreak").textContent = `Seguidas sin errores: ${streak} de 4`;
   $("pSuggest").hidden = streak < 4;
+}
+// Con tempo variable, ± mueve todo el rango; si no, el BPM fijo.
+function nudgePra(d) {
+  if (!cfg.ramp) return setPraBpm(cfg.bpm + d);
+  const lo = Math.max(30, +cfg.rMin + d), hi = Math.min(240, +cfg.rMax + d);
+  if (hi < lo) return;
+  cfg.rMin = lo; cfg.rMax = hi; savePra();
+  document.querySelector('[data-cfg="rMin"]').value = lo; document.querySelector('[data-cfg="rMax"]').value = hi;
+  streak = 0; drawStreak(); if (!pTimer) drawIdle();
 }
 function setPraBpm(v) {
   cfg.bpm = Math.min(240, Math.max(30, Math.round(+v) || 65));
@@ -1422,8 +1492,10 @@ function initPractice() {
     el.onchange = () => {
       cfg[k] = el.type === "checkbox" ? el.checked : el.dataset.num !== undefined ? +el.value : el.value;
       savePra(); streak = 0; drawStreak(); if (!pTimer) drawIdle();
+      $("pRamp").hidden = !cfg.ramp;
     };
   });
+  $("pRamp").hidden = !cfg.ramp;
   $("pLane").innerHTML = LANES.map(l => `<option value="${l.id}">${l.name}</option>`).join("");
   $("pLane").value = cfg.lane;
   // golpes por pulso elegibles
@@ -1465,13 +1537,13 @@ function initPractice() {
   paintSticks();
   // tempo
   $("pBpm").value = cfg.bpm; $("pBpmF").textContent = cfg.bpm + " BPM";
-  $("pDown").onclick = $("pDownF").onclick = () => setPraBpm(cfg.bpm - 5);
-  $("pUp").onclick = $("pUpF").onclick = () => setPraBpm(cfg.bpm + 5);
+  $("pDown").onclick = $("pDownF").onclick = () => nudgePra(-5);
+  $("pUp").onclick = $("pUpF").onclick = () => nudgePra(5);
   $("pBpm").onchange = () => setPraBpm($("pBpm").value);
   // progreso
   $("pOk").onclick = () => { streak++; drawStreak(); };
   $("pFail").onclick = () => { streak = 0; drawStreak(); };
-  $("pBump").onclick = () => setPraBpm(cfg.bpm + 5);
+  $("pBump").onclick = () => nudgePra(5);
   $("pStart").onclick = startPractice;
   $("pLog").onclick = logPractice;
   drawStreak(); drawIdle(); drawTime();
