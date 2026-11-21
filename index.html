@@ -158,8 +158,12 @@
   #pRamp[hidden] { display: none; }
   #mNow { font-size: 14px; }
   .up { color: #15803d; } .down { color: #dc2626; }
-  .ptempo { min-height: 2.2em; display: flex; align-items: center; justify-content: center; font: 800 clamp(20px, 6vw, 30px) system-ui; border-radius: 8px; }
-  .ptempo.up { background: #dcfce7; color: #15803d; } .ptempo.down { background: #fee2e2; color: #dc2626; }
+  .ptempo { min-height: 4.2em; display: flex; align-items: center; justify-content: center; gap: 16px; font: 800 clamp(26px, 8vw, 44px) system-ui; border-radius: 10px; border: 3px solid transparent; }
+  .ptempo .arr { font-size: 2.2em; line-height: 1; animation: pwpulse .45s ease-in-out infinite alternate; }
+  .ptempo.up { background: #16a34a; border-color: #166534; color: #fff; }
+  .ptempo.down { background: #dc2626; border-color: #991b1b; color: #fff; }
+  .ptempo:empty { display: none; } .pstage.ramp .ptempo:empty { display: flex; visibility: hidden; }
+  .pstage.tup { box-shadow: inset 0 0 0 8px #16a34a; } .pstage.tdown { box-shadow: inset 0 0 0 8px #dc2626; }
   .pstage.full .ptempo { order: 2; }
   .pbpmbox { display: none; align-items: center; justify-content: center; gap: 10px; }
   .pbpmbox button { font-size: 22px; padding: 6px 18px; }
@@ -1289,7 +1293,7 @@ function drawIdle() {
   $("pStep").textContent = "Listo para empezar";
   $("pInfo").textContent = `Va a practicar ${praSeq().join(" → ")} golpes por pulso, cambiando ${unitText()}, a ${cfg.ramp ? `${cfg.rMin}–${cfg.rMax} BPM (tempo variable)` : cfg.bpm + " BPM"}.`;
   $("pBpmF").textContent = (cfg.ramp ? rampBpm(cfg, 0) : cfg.bpm) + " BPM";
-  $("pSilence").hidden = true; $("pTempo").className = "ptempo"; $("pTempo").textContent = "";
+  $("pSilence").hidden = true; $("pTempo").className = "ptempo"; $("pTempo").textContent = ""; $("pStage").classList.remove("tup", "tdown"); $("pStage").classList.toggle("ramp", !!cfg.ramp);
   const plan = barPlan(0, 0);
   drawSeq(); drawBoard(plan.divs, plan.hands);
 }
@@ -1357,8 +1361,10 @@ function praApply(ev) {
     drawTime();
     $("pBpmF").textContent = ev.bpm + " BPM";
     const tn = ev.tempoNext, tp = $("pTempo");
-    tp.className = "ptempo" + (tn > ev.bpm ? " up" : tn < ev.bpm ? " down" : "");
-    tp.textContent = tn > ev.bpm ? `▲ ${tn} BPM` : tn < ev.bpm ? `▼ ${tn} BPM` : "";
+    const dir = tn > ev.bpm ? "up" : tn < ev.bpm ? "down" : "";
+    tp.className = "ptempo " + dir;
+    $("pStage").classList.toggle("tup", dir === "up"); $("pStage").classList.toggle("tdown", dir === "down");
+    tp.innerHTML = dir ? `<span class="arr">${dir === "up" ? "▲" : "▼"}</span><span>${tn} BPM</span>` : "";
     drawBoard(ev.plan.divs, ev.plan.hands);
     $("pSilence").hidden = !ev.muted;
     $("pBoard").style.visibility = ev.muted ? "hidden" : "visible";   // en el silencio no se ve el pulso
