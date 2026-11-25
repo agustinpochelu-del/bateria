@@ -199,7 +199,7 @@
   .pstage.full .pn { font-size: clamp(36px, 12vw, 72px); }
   .pstage.full .dot i { max-width: 72px; }
   .pstage.full .dot small { font-size: clamp(14px, 4.5vw, 26px); }
-  .pstage.full #pStart { order: 7; font-size: 20px; padding: 16px; width: 100%; }
+  .pstage.full #pStart { flex: 1; font-size: 20px; padding: 12px; }
   /* celular en vertical: los 4 pulsos como 4 filas (número a la izquierda, golpes a lo ancho), así cada golpe se ve grande */
   @media (orientation: portrait) {
     .pstage.full .pboard { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); gap: 8px; }
@@ -281,6 +281,48 @@
     body.page-per-block .block:last-child { break-after: auto; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
+  /* Pantalla completa: todo entra en la pantalla; el tablero usa lo que sobra y nada se tapa. */
+  .pstage.full { overflow: hidden; gap: 6px; }
+  .pstage.full > * { flex: none; margin: 0; }
+  .pstage.full #pInfo { display: none; }
+  .pstage.full .pstep { font-size: clamp(20px, 6vw, 34px); line-height: 1.15; }
+  .pstage.full .pwarn { height: 54px; min-height: 0; padding: 2px 8px; }
+  .pstage.full .pwarn i { width: 36px; border-width: 3px; }
+  .pstage.full .ptempo:not(:empty), .pstage.full.ramp .ptempo:empty { height: 62px; min-height: 0; font-size: 28px; }
+  .pstage.full .ptempo .arr { font-size: 1.5em; }
+  .pstage.full .pboard { flex: 1 1 0; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
+  .pstage.full .pb { min-height: 0; min-width: 0; overflow: hidden; container-type: size; }
+  .pstage.full .pn { font-size: min(12vw, 40cqh, 72px); line-height: 1; }
+  .pstage.full .dot i { width: min(86%, 48cqh, 72px); }
+  .pstage.full .dot small { font-size: min(4.5vw, 22cqh, 24px); line-height: 1; }
+  .pstage.full .pbpmbox { gap: 8px; }
+  .pstage.full .pbpmbox button:not(#pStart) { padding: 8px 14px; }
+  .pstage.full .pbpmbox b { min-width: 3.9em; font-size: 19px; }
+  @media (orientation: portrait) {
+    .pstage.full .pboard { grid-template-rows: repeat(4, minmax(0, 1fr)); }
+    .pstage.full .pn { font-size: min(12vw, 70cqh, 64px); }
+    .pstage.full .dot i { width: min(86%, 60cqh, 72px); }
+  }
+  @media (max-height: 500px) {
+    .pstage.full { gap: 3px; padding: 6px 10px; }
+    .pstage.full .pstep { font-size: 18px; }
+    .pstage.full .pseq span { font-size: 14px; padding: 0 10px; }
+    .pstage.full .pwarn { height: 34px; }
+    .pstage.full .pwarn i { width: 22px; }
+    .pstage.full .ptempo:not(:empty), .pstage.full.ramp .ptempo:empty { height: 36px; font-size: 20px; }
+    .pstage.full .psilence { font-size: 15px; }
+    .pstage.full .pbpmbox button:not(#pStart), .pstage.full #pStart { padding: 4px 14px; }
+  }
+  /* Micrófono */
+  .pmic { display: none; position: relative; height: 26px; border-radius: 13px; background: linear-gradient(90deg, #fde68a, #fff 40%, #bbf7d0 45%, #bbf7d0 55%, #fff 60%, #fde68a); border: 1.5px solid var(--line); }
+  .pstage.mic .pmic { display: block; }
+  .pstage.full .pmic { order: 4; }
+  .pmic::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; border-left: 2px solid var(--ink); }
+  .pmic i { position: absolute; top: 2px; left: 50%; width: 19px; height: 19px; margin-left: -9px; border-radius: 50%; z-index: 1; display: none; }
+  .meter { height: 14px; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: #fff; flex: 1; min-width: 140px; }
+  .meter span { display: block; height: 100%; width: 0; background: #16a34a; }
+  .micres:not(:empty) { margin-top: 8px; padding: 10px; border: 2px solid var(--ink); border-radius: 10px; }
+  .micres b.big { font-size: 34px; display: block; }
 </style>
 </head>
 <body>
@@ -361,8 +403,25 @@
     <div id="pTempo" class="ptempo" aria-live="polite"></div>
     <div id="pInfo" class="small"></div>
     <div id="pSilence" class="psilence" hidden>🤫 Silencio. Seguí el pulso en tu cabeza.</div>
+    <div id="pMic" class="pmic" title="Izquierda: te adelantaste · derecha: te atrasaste"><i></i></div>
     <div id="pBoard" class="pboard"></div>
-    <div class="pbpmbox"><button id="pDownF" aria-label="Bajar tempo">−</button><b id="pBpmF"></b><button id="pUpF" aria-label="Subir tempo">＋</button></div>
+    <div class="pbpmbox" id="pFoot"><button id="pDownF" aria-label="Bajar tempo">−</button><b id="pBpmF"></b><button id="pUpF" aria-label="Subir tempo">＋</button></div>
+  </div>
+
+  <div class="pcard">
+    <h3>🎤 Evaluar con el micrófono</h3>
+    <p class="small"><b>Usá auriculares.</b> Si el metrónomo suena por el parlante, el micrófono lo escucha y te califica a él en vez de a vos. El sonido se analiza en el momento, en tu dispositivo: no se graba ni se envía.</p>
+    <div class="row">
+      <label class="opt"><input type="checkbox" data-cfg="mic"> evaluar mi práctica</label>
+      <label class="opt">sensibilidad <input type="range" min="1" max="10" data-cfg="micSens" data-num></label>
+    </div>
+    <div class="row">
+      <button id="micTest">Probar micrófono</button>
+      <button id="micCal">Calibrar retardo</button>
+      <span class="meter"><span id="micLevel"></span></span>
+    </div>
+    <p id="micMsg" class="small" aria-live="polite"></p>
+    <div id="micResult" class="micres"></div>
   </div>
 
   <div class="pcard">
@@ -1169,7 +1228,7 @@ function stopMetro() {
 
 // target: null = solo clic, número = ese bloque en bucle, "all" = todos los bloques en orden.
 function startMetro(target) {
-  if (pTimer || pRaf) stopPractice();
+  micStopTools(); if (pTimer || pRaf) stopPractice();
   if (mTimer && mTarget === target) return stopMetro();
   if (mTimer) stopMetro();
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
@@ -1216,6 +1275,7 @@ checkSharedLink();
 const PRA_KEY = "bateria-practica-v1";
 const cfg = { subs: [1, 2, 4], pyr: false, unit: 8, loop: true, countIn: true, bpm: 65,
   ramp: false, rMin: 60, rMax: 100, rStep: 5, rEvery: 1, rDir: "up", rBack: false,
+  mic: false, micSens: 5,
   click: true, guide: true, lane: "pa", anchor: false, hands: true, sticking: "DI",
   gap: false, gapPlay: 3, gapMute: 1, warn: true, warnBeats: 2,
   full: matchMedia("(max-width: 700px)").matches };   // pantalla completa al empezar: sí en el celular, no en la PC
@@ -1344,6 +1404,7 @@ function praSchedule() {
     for (let s = 0; s < div; s++) {
       const at = pNext + s * beatDur / div;
       pEvents.push({ type: "hit", at, beat, sub: s, muted, stepIdx, warn, isNow, nowDiv: div });
+      if (mic && !countIn) micExpected.push(at);
       if (muted) continue;
       if (s === 0 && cfg.click) click(at, beat === 0 ? 1400 : 1000, 0.5);
       if (s === 0 && cfg.anchor && !countIn) DRUM.tun(at, VEL[2]);
@@ -1405,9 +1466,30 @@ function updatePraUI() {
 }
 function startPractice() {
   if (pTimer || pRaf) return stopPractice();
+  if (pStarting) return;
   stopMetro();
+  micStopTools();
   actx = actx || new (window.AudioContext || window.webkitAudioContext)();
   actx.resume();
+  $("micResult").textContent = "";
+  if (!cfg.mic) return runPractice();
+  pStarting = true;
+  enterFull();                       // antes de esperar el permiso: el navegador exige que venga del toque
+  const token = ++micToken;
+  openMic().then(() => {
+    pStarting = false;
+    if (token !== micToken || $("practica").hidden) { closeMic(); exitFull(); return; }
+    micMsg("");
+    runPractice();
+  }, e => {
+    pStarting = false;
+    micMsg(micError(e) + " La práctica sigue sin evaluar.");
+    if (token === micToken && !$("practica").hidden) runPractice(); else exitFull();
+  });
+}
+function runPractice() {
+  micExpected = []; micOnsets = [];
+  $("pStage").classList.toggle("mic", !!mic);
   pBeat = 0; pEvents = []; pRun++;
   pStroke = 0; pPlan = null; lastStep = -2; lastNext = -2; pCountIn = cfg.countIn;
   pT0 = performance.now();
@@ -1419,6 +1501,11 @@ function startPractice() {
   updatePraUI();
 }
 function stopPractice() {
+  micToken++;
+  if (micExpected.length) showScore(scoreHits(micExpected, micOnsets.map(t => t - micLatency()), actx.currentTime - 0.2));
+  micExpected = []; micOnsets = [];
+  closeMic();
+  $("pStage").classList.remove("mic"); $("pMic").firstElementChild.style.display = "none";
   clearInterval(pTimer); pTimer = null;
   cancelAnimationFrame(pRaf); pRaf = null;
   pRun++; pEvents = [];
@@ -1437,14 +1524,176 @@ function stopPractice() {
 function enterFull() {
   if (!cfg.full) return;
   $("pStage").classList.add("full");
+  $("pFoot").appendChild($("pStart"));
   document.body.classList.add("pfull");
   const el = document.documentElement;
   if (el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
 }
 function exitFull() {
   $("pStage").classList.remove("full");
+  document.querySelector("#pStage .pbar").prepend($("pStart"));
   document.body.classList.remove("pfull");
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+// ---------- Micrófono: detectar golpes y compararlos con el momento en que tocaba ----------
+// Detecta el arranque de cada golpe: un pico que supera el umbral y salta respecto de lo que sonaba recién.
+// Corre en el hilo de audio, con el mismo reloj que el metrónomo.
+const WORKLET = `
+class Onset extends AudioWorkletProcessor {
+  constructor() {
+    super(); this.th = 0.12; this.env = 0; this.hist = [0, 0, 0, 0]; this.last = -1; this.pk = 0; this.n = 0;
+    this.port.onmessage = e => { this.th = e.data; };
+  }
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (!ch) return true;
+    let peak = 0, first = -1;
+    for (let i = 0; i < ch.length; i++) {
+      const x = Math.abs(ch[i]);
+      if (x > peak) peak = x;
+      if (first < 0 && x > this.th) first = i;
+    }
+    const t = currentTime + Math.max(0, first) / sampleRate;
+    if (first >= 0 && peak > this.hist[0] * 1.8 && t - this.last > 0.05) { this.port.postMessage({ t }); this.last = t; }
+    this.env = Math.max(peak, this.env * Math.exp(-ch.length / (sampleRate * 0.03)));
+    this.hist.shift(); this.hist.push(this.env);
+    if (peak > this.pk) this.pk = peak;
+    if (++this.n >= 16) { this.port.postMessage({ level: this.pk }); this.pk = 0; this.n = 0; }
+    return true;
+  }
+}
+registerProcessor("onset", Onset);`;
+const LAT_KEY = "bateria-latencia";
+let mic = null, micReady = false, micToken = 0, pStarting = false, micExpected = [], micOnsets = [], micTool = null;
+const micMsg = t => { $("micMsg").textContent = t; };
+const micThreshold = () => 0.5 * Math.pow(0.7, (+cfg.micSens || 5) - 1);
+// Retardo entre que la app manda un sonido y que el micrófono lo escucha. Medido con "Calibrar"; si no, estimado.
+function micLatency() {
+  let v = NaN;
+  try { v = parseFloat(localStorage.getItem(LAT_KEY)); } catch (e) {}
+  return v >= 0 && v < 0.6 ? v : ((actx && (actx.outputLatency || actx.baseLatency)) || 0) + 0.03;
+}
+const micError = e => e && e.name === "NotAllowedError" ? "No diste permiso para usar el micrófono (se cambia en los permisos del sitio)."
+  : e && e.name === "NotFoundError" ? "No encuentro ningún micrófono." : "Este navegador no me deja usar el micrófono.";
+
+async function openMic() {
+  if (mic) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !actx.audioWorklet) throw new Error("sin soporte");
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  try {
+    if (!micReady) {
+      const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }));
+      await actx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      micReady = true;
+    }
+    const src = actx.createMediaStreamSource(stream), node = new AudioWorkletNode(actx, "onset"), sink = actx.createGain();
+    sink.gain.value = 0;                              // el micrófono nunca sale por los parlantes
+    src.connect(node); node.connect(sink); sink.connect(actx.destination);
+    node.port.postMessage(micThreshold());
+    node.port.onmessage = e => micData(e.data);
+    mic = { stream, src, node, sink };
+  } catch (e) { stream.getTracks().forEach(t => t.stop()); throw e; }
+}
+function closeMic() {
+  if (!mic) return;
+  mic.node.port.onmessage = null;
+  mic.stream.getTracks().forEach(t => t.stop());     // apaga el micrófono (se va el indicador del teléfono)
+  mic.src.disconnect(); mic.node.disconnect(); mic.sink.disconnect();
+  mic = null;
+  $("micLevel").style.width = "0";
+}
+function micData(d) {
+  if (d.level !== undefined) { $("micLevel").style.width = Math.min(100, Math.sqrt(d.level) * 100) + "%"; return; }
+  if (micTool) return micTool.onset(d.t);
+  if (!micExpected.length) return;
+  micOnsets.push(d.t);
+  // marca en vivo: a la izquierda si fue antes, a la derecha si fue después
+  const t = d.t - micLatency();
+  let best = null;
+  for (const e of micExpected.slice(-24)) if (best === null || Math.abs(t - e) < Math.abs(t - best)) best = e;
+  const dev = t - best, dot = $("pMic").firstElementChild;
+  if (Math.abs(dev) > 0.15) return;
+  dot.style.display = "block";
+  dot.style.left = 50 + (dev / 0.15) * 48 + "%";
+  dot.style.background = Math.abs(dev) <= 0.04 ? "#16a34a" : Math.abs(dev) <= 0.08 ? "#f59e0b" : "#dc2626";
+}
+
+// Compara los golpes esperados con los escuchados (ambos en segundos). "A tiempo" = a 40 ms o menos.
+function scoreHits(expected, onsets, until) {
+  const exp = expected.filter(t => t <= until), used = new Set(), devs = [];
+  exp.forEach((e, i) => {
+    const gap = Math.min(i ? e - exp[i - 1] : 1, i + 1 < exp.length ? exp[i + 1] - e : 1);
+    const win = Math.min(0.12, gap * 0.5);
+    let best = -1;
+    onsets.forEach((o, j) => { if (!used.has(j) && Math.abs(o - e) <= win && (best < 0 || Math.abs(o - e) < Math.abs(onsets[best] - e))) best = j; });
+    if (best >= 0) { used.add(best); devs.push(onsets[best] - e); }
+  });
+  const inRange = exp.length ? onsets.filter(o => o >= exp[0] - 0.12 && o <= exp[exp.length - 1] + 0.12).length : 0;
+  const mean = devs.length ? devs.reduce((a, b) => a + b, 0) / devs.length : 0;
+  return { total: exp.length, hit: devs.length, onTime: devs.filter(d => Math.abs(d) <= 0.04).length,
+    missed: exp.length - devs.length, extra: Math.max(0, inRange - devs.length), mean: Math.round(mean * 1000) };
+}
+function showScore(r) {
+  const box = $("micResult");
+  if (!r.total) return;
+  if (!r.hit) { box.textContent = "No reconocí ningún golpe. Probá subir la sensibilidad, acercar el micrófono o calibrar el retardo."; return; }
+  const pct = Math.round(r.onTime * 100 / r.total);
+  const trend = Math.abs(r.mean) <= 15 ? "centrado" : r.mean < 0 ? `te adelantás ${-r.mean} ms` : `te atrasás ${r.mean} ms`;
+  box.innerHTML = `<b class="big" style="color:${pct >= 80 ? "#16a34a" : pct >= 50 ? "#b45309" : "#dc2626"}">${pct}% a tiempo</b>
+    Escuché ${r.hit} de ${r.total} golpes · faltaron ${r.missed} · de más ${r.extra}<br>Tendencia: <b>${trend}</b>`;
+}
+
+// Herramientas: probar el micrófono y calibrar el retardo.
+function micStopTools() {
+  if (!micTool) return;
+  micTool.stop(); micTool = null; closeMic();
+  $("micTest").textContent = "Probar micrófono";
+}
+async function startTool(tool) {
+  if (pTimer || pRaf || pStarting) return;
+  stopMetro(); micStopTools(); closeMic();
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  actx.resume();
+  pStarting = true;
+  try { await openMic(); } catch (e) { pStarting = false; micMsg(micError(e)); return; }
+  pStarting = false;
+  if ($("practica").hidden) return closeMic();
+  micTool = tool; tool.start();
+}
+function testTool() {
+  let n = 0;
+  return {
+    start() { $("micTest").textContent = "■ Dejar de probar"; micMsg("Tocá: cada golpe reconocido suma uno."); },
+    onset() { micMsg(`Golpes reconocidos: ${++n}`); },
+    stop() { micMsg(""); },
+  };
+}
+// Toca 8 clics por el parlante, los escucha y mide cuánto tardan en volver.
+function calTool() {
+  const clicks = [], heard = [];
+  let timer = null;
+  return {
+    start() {
+      micMsg("Calibrando… sin auriculares (o con el auricular pegado al micrófono), volumen alto y silencio.");
+      const t0 = actx.currentTime + 0.6;
+      for (let i = 0; i < 8; i++) { clicks.push(t0 + i * 0.7); click(t0 + i * 0.7, 1400, 1); }
+      timer = setTimeout(() => {
+        const d = clicks.map(c => { const h = heard.find(t => t >= c && t < c + 0.6); return h === undefined ? null : h - c; })
+          .filter(v => v !== null).sort((a, b) => a - b);
+        let msg = "No escuché bien los clics. Subí el volumen o la sensibilidad y probá de nuevo.";
+        if (d.length >= 5) {
+          const lat = d[Math.floor(d.length / 2)];
+          try { localStorage.setItem(LAT_KEY, lat.toFixed(4)); } catch (e) {}
+          msg = `Listo: retardo de ${Math.round(lat * 1000)} ms. Repetilo si cambiás de auriculares o parlante.`;
+        }
+        micStopTools(); micMsg(msg);
+      }, 6600);
+    },
+    onset(t) { heard.push(t); },
+    stop() { clearTimeout(timer); micMsg(""); },
+  };
 }
 
 // Tiempo practicado (lo que ya se acumuló más lo de la práctica en curso).
@@ -1572,6 +1821,9 @@ function initPractice() {
   $("pFail").onclick = () => { streak = 0; drawStreak(); };
   $("pBump").onclick = () => nudgePra(5);
   $("pStart").onclick = startPractice;
+  $("micTest").onclick = () => micTool ? micStopTools() : startTool(testTool());
+  $("micCal").onclick = () => startTool(calTool());
+  document.querySelector('[data-cfg="micSens"]').addEventListener("input", e => { cfg.micSens = +e.target.value; if (mic) mic.node.port.postMessage(micThreshold()); });
   $("pLog").onclick = logPractice;
   drawStreak(); drawIdle(); drawTime();
 }
@@ -1637,7 +1889,7 @@ $("regNew").onclick = () => {
 
 // Pestañas
 function setView(v) {
-  stopMetro(); if (pTimer || pRaf) stopPractice();
+  stopMetro(); micStopTools(); if (pTimer || pRaf) stopPractice();
   document.body.classList.toggle("v-practica", v !== "esquemas");   // oculta los botones que son solo de esquemas
   $("esquemas").hidden = v !== "esquemas";
   $("practica").hidden = v !== "practica";
