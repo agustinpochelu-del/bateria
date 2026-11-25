@@ -416,6 +416,9 @@
       <label class="opt">sensibilidad <input type="range" min="1" max="10" data-cfg="micSens" data-num></label>
     </div>
     <div class="row">
+      <label class="opt">micrófono <select id="micDev" style="max-width:260px"><option value="">el predeterminado</option></select></label>
+    </div>
+    <div class="row">
       <button id="micTest">Probar micrófono</button>
       <button id="micCal">Calibrar retardo</button>
       <span class="meter"><span id="micLevel"></span></span>
@@ -1565,7 +1568,7 @@ class Onset extends AudioWorkletProcessor {
 }
 registerProcessor("onset", Onset);`;
 const LAT_KEY = "bateria-latencia";
-let mic = null, micReady = false, micToken = 0, pStarting = false, micExpected = [], micOnsets = [], micTool = null;
+let mic = null, micName = "", micReady = false, micToken = 0, pStarting = false, micExpected = [], micOnsets = [], micTool = null;
 const micMsg = t => { $("micMsg").textContent = t; };
 const micThreshold = () => 0.5 * Math.pow(0.7, (+cfg.micSens || 5) - 1);
 // Retardo entre que la app manda un sonido y que el micrófono lo escucha. Medido con "Calibrar"; si no, estimado.
@@ -1575,12 +1578,41 @@ function micLatency() {
   return v >= 0 && v < 0.6 ? v : ((actx && (actx.outputLatency || actx.baseLatency)) || 0) + 0.03;
 }
 const micError = e => e && e.name === "NotAllowedError" ? "No diste permiso para usar el micrófono (se cambia en los permisos del sitio)."
-  : e && e.name === "NotFoundError" ? "No encuentro ningún micrófono." : "Este navegador no me deja usar el micrófono.";
+  : e && e.name === "NotFoundError" ? "No encuentro ningún micrófono."
+  : e && e.name === "NotReadableError" ? "No pude abrir ese micrófono: puede estar en uso por otro programa. Elegí otro de la lista."
+  : `Este navegador no me deja usar el micrófono (${(e && (e.name + ": " + e.message)) || "sin detalle"}).`;
+const DEV_KEY = "bateria-mic";
+const micWanted = () => { try { return localStorage.getItem(DEV_KEY) || ""; } catch (e) { return ""; } };
+// Los nombres de los micrófonos solo se pueden leer después de dar el permiso.
+async function listMics() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  const list = (await navigator.mediaDevices.enumerateDevices())
+    .filter(d => d.kind === "audioinput" && d.deviceId && d.label);
+  if (!list.length) return;
+  const sel = $("micDev");
+  sel.length = 1;
+  list.filter(d => d.deviceId !== "default" && d.deviceId !== "communications")
+    .forEach(d => sel.add(new Option(d.label, d.deviceId)));
+  sel.value = micWanted();
+  if (sel.selectedIndex < 0) sel.value = "";
+}
+async function getMicStream() {
+  const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+  const id = micWanted();
+  if (id) {
+    try { return await navigator.mediaDevices.getUserMedia({ audio: { ...audio, deviceId: { exact: id } } }); }
+    catch (e) { if (e.name !== "OverconstrainedError" && e.name !== "NotFoundError") throw e; }   // se desconectó: va el predeterminado
+  }
+  return navigator.mediaDevices.getUserMedia({ audio });
+}
 
 async function openMic() {
   if (mic) return;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !actx.audioWorklet) throw new Error("sin soporte");
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  const stream = await getMicStream();
+  const track = stream.getAudioTracks()[0];
+  micName = (track && track.label) || "";
+  listMics().catch(() => {});
   try {
     if (!micReady) {
       const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }));
@@ -1665,8 +1697,8 @@ async function startTool(tool) {
 function testTool() {
   let n = 0;
   return {
-    start() { $("micTest").textContent = "■ Dejar de probar"; micMsg("Tocá: cada golpe reconocido suma uno."); },
-    onset() { micMsg(`Golpes reconocidos: ${++n}`); },
+    start() { $("micTest").textContent = "■ Dejar de probar"; micMsg(`Escuchando: ${micName || "micrófono"}. Tocá: cada golpe reconocido suma uno. La barra se mueve con cualquier sonido.`); },
+    onset() { micMsg(`Escuchando: ${micName || "micrófono"}. Golpes reconocidos: ${++n}`); },
     stop() { micMsg(""); },
   };
 }
@@ -1823,6 +1855,15 @@ function initPractice() {
   $("pStart").onclick = startPractice;
   $("micTest").onclick = () => micTool ? micStopTools() : startTool(testTool());
   $("micCal").onclick = () => startTool(calTool());
+  $("micDev").onchange = () => {
+    try { localStorage.setItem(DEV_KEY, $("micDev").value); } catch (e) {}
+    // el retardo calibrado era de otro micrófono
+    try { localStorage.removeItem(LAT_KEY); } catch (e) {}
+    const testing = !!micTool;
+    micStopTools();
+    if (testing) startTool(testTool()); else micMsg("Micrófono cambiado. Volvé a calibrar el retardo.");
+  };
+  listMics().catch(() => {});
   document.querySelector('[data-cfg="micSens"]').addEventListener("input", e => { cfg.micSens = +e.target.value; if (mic) mic.node.port.postMessage(micThreshold()); });
   $("pLog").onclick = logPractice;
   drawStreak(); drawIdle(); drawTime();
