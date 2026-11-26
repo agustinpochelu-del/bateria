@@ -323,6 +323,12 @@
   .meter span { display: block; height: 100%; width: 0; background: #16a34a; }
   .micres:not(:empty) { margin-top: 8px; padding: 10px; border: 2px solid var(--ink); border-radius: 10px; }
   .micres b.big { font-size: 34px; display: block; }
+  .pstage { position: relative; }
+  .pstage.full { position: fixed; }
+  .pvoice { display: none; position: absolute; right: 10px; top: 8px; font-size: 20px; }
+  .pstage.voice .pvoice { display: block; }
+  .pstage.full > .pvoice { position: absolute; margin: 0; }
+  #voiceBtn.on { background: #16a34a; border-color: #16a34a; color: #fff; }
 </style>
 </head>
 <body>
@@ -394,6 +400,7 @@
   <p class="small">Para sostener el pulso mientras cambia cuántos golpes tocás por pulso (1, 2, 3, 4…). Vos tocás en tu batería; la app marca el pulso y, si querés, también la subdivisión.</p>
 
   <div class="pstage" id="pStage">
+    <span id="pVoice" class="pvoice" title="Escuchando órdenes: iniciar, parar, más rápido, más lento">🗣</span>
     <div class="pbar">
       <button id="pStart" class="primary">▶ Empezar</button>
       <span id="pStep" class="pstep">Listo para empezar</span>
@@ -406,6 +413,13 @@
     <div id="pMic" class="pmic" title="Izquierda: te adelantaste · derecha: te atrasaste"><i></i></div>
     <div id="pBoard" class="pboard"></div>
     <div class="pbpmbox" id="pFoot"><button id="pDownF" aria-label="Bajar tempo">−</button><b id="pBpmF"></b><button id="pUpF" aria-label="Subir tempo">＋</button></div>
+  </div>
+
+  <div class="pcard">
+    <h3>🗣 Órdenes de voz</h3>
+    <p class="small">Para manejar la práctica sin levantarte: <b>“iniciar”</b>, <b>“parar”</b>, <b>“más rápido”</b>, <b>“más lento”</b>. Decilas sin tocar al mismo tiempo. El reconocimiento lo hace el navegador y, en general, manda el audio a su proveedor (Google en Chrome): necesita internet y solo escucha mientras esté activado.</p>
+    <div class="row"><button id="voiceBtn">🗣 Activar órdenes de voz</button></div>
+    <p id="voiceMsg" class="small" aria-live="polite"></p>
   </div>
 
   <div class="pcard">
@@ -1728,6 +1742,66 @@ function calTool() {
   };
 }
 
+// ---------- Órdenes de voz ----------
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let voiceRec = null, voiceOn = false, voiceDone = -1, voiceFails = 0;
+const voiceMsg = t => { $("voiceMsg").textContent = t; };
+function voiceCommand(text) {
+  const t = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z ]/g, " ").trim();
+  if (/\b(parar|stop|frenar|detener|basta)\b/.test(t) || /^(para|pare|frena)$/.test(t)) return "stop";
+  if (/\bmas rapido\b|\bsubir\b/.test(t)) return "up";
+  if (/\bmas lento\b|\bbajar\b/.test(t)) return "down";
+  if (/\b(iniciar|inicia|empezar|empeza|arrancar|arranca|comenzar|play)\b/.test(t)) return "start";
+  return null;
+}
+function voiceRun(cmd) {
+  const running = !!(pTimer || pRaf);
+  if (cmd === "start" && !running) startPractice();
+  else if (cmd === "stop" && running) stopPractice();
+  else if (cmd === "up") nudgePra(5);
+  else if (cmd === "down") nudgePra(-5);
+}
+function voiceListen() {
+  const rec = voiceRec = new SR();
+  rec.lang = "es-AR"; rec.continuous = true; rec.interimResults = true;
+  rec.onstart = () => { voiceDone = -1; };
+  rec.onresult = e => {
+    voiceFails = 0;
+    const i = e.results.length - 1;
+    if (i === voiceDone) return;                         // una orden por frase
+    const text = e.results[i][0].transcript, cmd = voiceCommand(text);
+    voiceMsg(`Escuché: “${text.trim()}”`);
+    if (cmd) { voiceDone = i; voiceRun(cmd); }
+  };
+  rec.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") return voiceStop("El navegador no me dejó escuchar. Revisá el permiso del micrófono.");
+    if (e.error === "audio-capture") return voiceStop("No pude usar el micrófono para las órdenes de voz.");
+    if (e.error !== "no-speech" && e.error !== "aborted" && ++voiceFails >= 4)
+      voiceStop(`Las órdenes de voz no funcionan acá (${e.error}). Hace falta internet y un navegador compatible, como Chrome.`);
+  };
+  // el navegador corta solo cada tanto: se vuelve a escuchar
+  rec.onend = () => { setTimeout(() => { if (voiceOn && voiceRec === rec) voiceListen(); }, 300); };
+  try { rec.start(); } catch (e) { voiceStop("No pude activar las órdenes de voz."); }
+}
+function voiceStart() {
+  if (!SR) return voiceMsg("Este navegador no tiene reconocimiento de voz. Probá con Chrome.");
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  actx.resume();                     // este toque habilita el sonido para cuando digas “iniciar”
+  voiceOn = true; voiceFails = 0;
+  $("voiceBtn").textContent = "■ Dejar de escuchar"; $("voiceBtn").classList.add("on");
+  $("pStage").classList.add("voice");
+  voiceMsg("Escuchando… decí “iniciar”.");
+  voiceListen();
+}
+function voiceStop(msg = "") {
+  voiceOn = false;
+  const rec = voiceRec; voiceRec = null;
+  if (rec) { rec.onresult = rec.onerror = rec.onend = null; try { rec.abort(); } catch (e) {} }
+  $("voiceBtn").textContent = "🗣 Activar órdenes de voz"; $("voiceBtn").classList.remove("on");
+  $("pStage").classList.remove("voice");
+  voiceMsg(msg);
+}
+
 // Tiempo practicado (lo que ya se acumuló más lo de la práctica en curso).
 const praSecs = () => pSecs + (pT0 !== null ? (performance.now() - pT0) / 1000 : 0);
 function drawTime() {
@@ -1855,6 +1929,7 @@ function initPractice() {
   $("pStart").onclick = startPractice;
   $("micTest").onclick = () => micTool ? micStopTools() : startTool(testTool());
   $("micCal").onclick = () => startTool(calTool());
+  $("voiceBtn").onclick = () => voiceOn ? voiceStop() : voiceStart();
   $("micDev").onchange = () => {
     try { localStorage.setItem(DEV_KEY, $("micDev").value); } catch (e) {}
     // el retardo calibrado era de otro micrófono
@@ -1930,7 +2005,7 @@ $("regNew").onclick = () => {
 
 // Pestañas
 function setView(v) {
-  stopMetro(); micStopTools(); if (pTimer || pRaf) stopPractice();
+  stopMetro(); micStopTools(); if (v !== "practica" && voiceOn) voiceStop(); if (pTimer || pRaf) stopPractice();
   document.body.classList.toggle("v-practica", v !== "esquemas");   // oculta los botones que son solo de esquemas
   $("esquemas").hidden = v !== "esquemas";
   $("practica").hidden = v !== "practica";
